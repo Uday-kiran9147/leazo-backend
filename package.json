@@ -5,7 +5,7 @@
   "scripts": {
     "start": "npx tsc && nodemon dist/src/app.js",
     "build": "tsc",
-    "prod": "node dist/app.js",
+    "prod":  "npx tsc && node dist/src/app.js",
     "test":  "nodemon --exec ts-node src/app.ts"
   },
   "keywords": [],
