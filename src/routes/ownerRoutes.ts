@@ -10,9 +10,12 @@ ownerRouter.delete('/delete-owner', auth, deleteOwner)
 ownerRouter.get('/get-owners', auth, getOwners) // DONE
 ownerRouter.get('/me', auth, getOwnerById) // DONE
 
+// Buildings
 ownerRouter.post('/create-building', auth, createBuilding) // DONE
 ownerRouter.patch('/update-building', auth, updateBuilding) // DONE
 ownerRouter.get('/buildings/me', auth, getOwnerBuildings) // DONE
+
+// Portions
 ownerRouter.post('/buildings/create-portion', auth, createPortion) // DONE
 ownerRouter.patch('/buildings/update-portion', auth, updatePortion) // DONE
 ownerRouter.get('/buildings/get-portions', auth, getPortionsByBuildingId) // DONE

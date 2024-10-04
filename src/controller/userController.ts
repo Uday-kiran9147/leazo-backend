@@ -1,7 +1,25 @@
 import { Request, Response } from 'express';
 import { User } from '../models/user.model';
 import ApiResponse from '../utils/api_response';
+import { Portion } from '../models/portion.model';
 
+
+
+// Retrieve all portions from the database
+export const getAllPortions = async (req: Request, res: Response) => {
+  try {
+    console.log(req.originalUrl); // Log the original URL for debugging purposes
+
+    // Fetch all portions from the database
+    const portions = await Portion.find();
+    const apiResponse = new ApiResponse(200, "success", {count:portions.length,portions});
+    // Return the portions with a 200 status code
+    res.status(200).json(apiResponse);
+  } catch (error) {
+    // Handle any server errors
+    res.status(500).json({ message: 'Server error' });
+  }
+};
 // Retrieve all users from the database
 export const getAllUsers = async (req: Request, res: Response) => {
   try {
