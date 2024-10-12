@@ -33,5 +33,13 @@ var ownerSchema = new mongoose.Schema<IOwner>(
         timestamps: true
     }
 );
+// Cascade delete buildings when an owner is deleted
+ownerSchema.pre('findOneAndDelete', async function(next) {
+    const owner = await this.model.findOne(this.getQuery());
+    if (owner) {
+        await mongoose.model('Building').deleteMany({ ownerId: owner._id });
+    }
+    next();
+  });
 
 export const Owner = mongoose.model<IOwner,IOwnerModel>('Owner', ownerSchema);

@@ -4,13 +4,14 @@ import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import { log, timeStamp } from "console";
 import ApiError from "../utils/api_error";
+import { Owner } from "./owner.model";
 
 // User -> userSchema -> IUser -> IUserMethods
 
 // Define an interface for User instance methods
 // Accessable on the instances.
 interface IUserMethods {
-  generateAuthToken(): Promise<string>;
+  generateAccessToken(): Promise<string>;
 }
 
 // Define the User document interface (combines fields with methods)
@@ -47,7 +48,7 @@ const userSchema = new Schema<IUser>({
     trim: true,
     validate: (value: string) => {
       if (!validator.isEmail(value)) {
-        throw new Error("Invalid Email Address");
+        throw new ApiError(400,"Invalid Email Address");
       }
     },
   },
@@ -61,7 +62,7 @@ const userSchema = new Schema<IUser>({
 });
 
 // Define instance method for generating auth token
-userSchema.methods.generateAuthToken = async function (): Promise<string> {
+userSchema.methods.generateAccessToken = async function (): Promise<string> {
   const user = this as IUser;
   const secretKey = process.env.JWT_SECRET as string;
   if (!secretKey) {
@@ -72,6 +73,21 @@ userSchema.methods.generateAuthToken = async function (): Promise<string> {
   return token;
 };
 
+// Generate Refresh token
+// userSchema.methods.generateRefreshToken =async function () : Promise<string> {
+//   return jwt.sign(this as IUser, process.env.REFRESH_TOKEN_SECRET, { expiresIn: process.env.REFRESH_TOKEN_EXPIRY });
+// };
+userSchema.methods.generateRefreshToken = async function (): Promise<string> {
+  const user = this as IUser;
+  const secretKey = process.env.JWT_SECRET as string;
+  if (!secretKey) {
+    throw new ApiError(400, "JWT Secret Key not found");
+  }
+  const token = jwt.sign({ _id: user._id.toString() }, secretKey, { expiresIn: "7d" });
+  log("Token Generated", token);
+  return token;
+}
+
 // ! statics are accessible on the models and methods are accessible on the instances
 // Define static method for finding user by credentials
 userSchema.statics.findByCredentials = async function (
@@ -80,13 +96,13 @@ userSchema.statics.findByCredentials = async function (
 ): Promise<IUser | null> {
   const user = await User.findOne({ email });
   if (!user) {
-    throw new Error("Invalid login credentials");
+    throw new ApiError(404,"User not found");
   }
 
   // Compare the provided password with the hashed password
   const isMatch = await bcrypt.compare(password, user.password);
   if (!isMatch) {
-    throw new Error("Invalid login credentials");
+    throw new ApiError(400 ,"Invalid login credentials");
   }
 
   return user;
@@ -103,5 +119,13 @@ userSchema.pre('save', async function (next) {
   next();
 });
 
+// Cascade delete owner when a user is deleted
+userSchema.pre('findOneAndDelete', async function(next) {
+  const user = await this.model.findOne(this.getQuery());
+  if (user && user.ownerId) {
+    await mongoose.model('Owner').findByIdAndDelete(user.ownerId);
+  }
+  next();
+});
 // Export the User model
 export const User = mongoose.model<IUser, IUserModel>("User", userSchema);

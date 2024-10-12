@@ -92,8 +92,10 @@ export const deleteOwner = async (req: Request, res: Response) => {
         const user = await User.findOneAndUpdate(
             { _id: userId },
             {
-                isOwner: false, // Mark user as not being an owner
-                ownerId: null,  // Remove the ownerId reference
+                $set:{
+                    isOwner: false, // Mark user as not being an owner
+                    ownerId: null,  // Remove the ownerId reference
+                }
             },
             { runValidators: true, new: true } // Validate and return the updated user
         );
@@ -226,9 +228,40 @@ export const updateBuilding = async (req: Request, res: Response) => {
     }
 };
 
+// delete a building
+
+export const deleteBuilding = async (req: Request, res: Response) => {
+    try {
+        const buildingId = req.body.buildingId;
+        const ownerId = req.body.user.ownerId;
+
+        // Check if buildingId and ownerId are present
+        if (!buildingId || !ownerId) {
+            return res.status(400).json({ message: "Building ID and Owner ID are required" });
+        }
+
+        // Find and delete the building by buildingId
+        const building = await Building.findOneAndDelete({ _id: buildingId },);
+
+        // If building not found, return a 404 error
+        if (!building) {
+            return res.status(404).json({ message: "Building not found" });
+        }
+
+        // Send the success response with the deleted building
+        const apiResponse = new ApiResponse(200, "Building deleted successfully", building);
+        return res.status(apiResponse.status).json(apiResponse);
+    } catch (error) {
+        // Handle any server error
+        return res.status(500).json({ message: "Server error", error: error });
+    }
+};
 export const getOwnerBuildings = async (req: Request, res: Response) => {
     try {
         const ownerId = req.body.user.ownerId;
+        if (!ownerId) {
+            return res.status(400).json({ message: "Owner ID is required" });
+        }
         const buildings = await Building.find({ ownerId: ownerId });
         const apiResponse = new ApiResponse(200, "Buildings retrieved successfully", { count: buildings.length, buildings });
         return res.status(apiResponse.status).json(apiResponse);
@@ -308,11 +341,42 @@ export const updatePortion = async (req: Request, res: Response) => {
     }
 }
 
+// delete a portion
+
+export const deletePortion = async (req: Request, res: Response) => {
+    try {
+        const portionId = req.body.portionId;
+        const ownerId = req.body.user.ownerId;
+
+        // Check if buildingId and ownerId are present
+        if (!portionId || !ownerId) {
+            return res.status(400).json({ message: "Portion ID and Owner ID are required" });
+        }
+
+        // Find and delete the building by buildingId
+        const portion = await Portion.findOneAndDelete({ _id: portionId },);
+
+        // If building not found, return a 404 error
+        if (!portion) {
+            return res.status(404).json({ message: "Portion not found" });
+        }
+
+        // Send the success response with the deleted building
+        const apiResponse = new ApiResponse(200, "Portion deleted successfully", portion);
+        return res.status(apiResponse.status).json(apiResponse);
+    } catch (error) {
+        // Handle any server error
+        return res.status(500).json({ message: "Server error", error: error });
+    }
+};
 export const getPortionsByBuildingId = async (req: Request, res: Response) => {
 
     try {
         const buildingId = req.body.buildingId;
         const portions = await Portion.find({ buildingId: buildingId });
+        if(!portions) {
+            return res.status(404).json({ message: "Portions not found" });
+        }
         const apiResponse = new ApiResponse(200, "Portions retrieved successfully", { count: portions.length, portions });
         return res.status(apiResponse.status).json(apiResponse);
     } catch (error) {

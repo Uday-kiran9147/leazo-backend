@@ -4,7 +4,19 @@ import ApiResponse from '../utils/api_response';
 import { Portion } from '../models/portion.model';
 
 
-
+export const deleteUser = async (req:Request, res:Response) => {
+  const user = req.body.user;
+  try {
+    if (user) {
+      await User.findByIdAndDelete({id:user._id})
+      const apiResponse = new ApiResponse(200, "User deleted successfully", null);
+      return res.status(apiResponse.status).json(apiResponse);
+    }
+    return res.status(404).json({ message: 'User not found' });
+  } catch (error) {
+    return res.status(500).json({ message: 'Server error' });
+  }
+}
 // Retrieve all portions from the database
 export const getAllPortions = async (req: Request, res: Response) => {
   try {

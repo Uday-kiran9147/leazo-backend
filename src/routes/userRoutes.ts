@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { getAllUsers, createUser, getUser, updateUser,getAllPortions } from '../controller/userController';
+import { getAllUsers, createUser, getUser, updateUser,getAllPortions,deleteUser } from '../controller/userController';
 import { auth } from '../middleware/auth.middleware';
 
 
@@ -9,7 +9,8 @@ userRouter.get('/', getAllUsers);// DONE
 userRouter.get('/me',auth, getUser);// DONE
 userRouter.post('/create-user', createUser); // DONE
 userRouter.patch('/update-user',auth, updateUser); // DONE
-userRouter.get('/get-portions',auth,getAllPortions)
+userRouter.delete('/delete/me',auth,deleteUser); 
+userRouter.get('/get-portions',auth,getAllPortions) //DONE
 
 
 export default userRouter;

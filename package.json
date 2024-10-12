@@ -4,8 +4,9 @@
   "main": "index.js",
   "scripts": {
     "start": "npx tsc && nodemon dist/src/app.js",
-    "prod":  "npx tsc && node dist/src/app.js",
-    "dev":  "nodemon --exec ts-node src/app.ts"
+    "prod": "npx tsc && node dist/src/app.js",
+    "dev": "nodemon --exec ts-node src/app.ts",
+    "test": "nodemon --exec ts-node test/test.ts"
   },
   "keywords": [],
   "author": "",
@@ -18,7 +19,7 @@
     "dotenv": "^16.4.5",
     "express": "^4.20.0",
     "jsonwebtoken": "^9.0.2",
-    "mongoose": "^8.6.1",
+    "mongoose": "^8.7.1",
     "validator": "^13.12.0"
   },
   "devDependencies": {
@@ -27,6 +28,6 @@
     "@types/node": "^22.5.4",
     "@types/validator": "^13.12.1",
     "ts-node": "^10.9.2",
-    "typescript": "^5.6.2"
+    "typescript": "^5.6.3"
   }
 }
