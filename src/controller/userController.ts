@@ -72,7 +72,7 @@ export const getUser = async (req: Request, res: Response) => {
     const user = req.body.user;
 
     console.log(req.originalUrl); // Log the original URL for debugging
-    console.log(user._id); // Log the user ID for debugging
+    // console.log(user._id); // Log the user ID for debugging
 
     // If the user exists, return the user in an ApiResponse
     if (user) {

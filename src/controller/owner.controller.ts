@@ -10,7 +10,7 @@ export const createOwner = async (req: Request, res: Response) => {
     try {
         // Check if the user is already an owner
         const isOwner = req.body.user.isOwner;
-        console.log(isOwner);
+        // console.log(isOwner);
 
         // If the user is already an owner, return an error
         if (isOwner == true) {
@@ -41,7 +41,7 @@ export const createOwner = async (req: Request, res: Response) => {
 // Update an existing owner
 export const updateOwner = async (req: Request, res: Response) => {
     console.log(req.originalUrl); // Log the URL
-    console.log(req.body.user.ownerId); // Log the ownerId
+    // console.log(req.body.user.ownerId); // Log the ownerId
 
     try {
         const ownerId = req.body.user.ownerId;
@@ -58,7 +58,7 @@ export const updateOwner = async (req: Request, res: Response) => {
             return res.status(404).json({ message: "Owner not found" });
         }
 
-        console.log(owner); // Log the updated owner
+        // console.log(owner); // Log the updated owner
 
         // Send the success response with the updated owner
         const apiResponse = new ApiResponse(200, "Owner updated successfully", owner);
@@ -105,7 +105,7 @@ export const deleteOwner = async (req: Request, res: Response) => {
             return res.status(404).json({ message: "User not found" });
         }
 
-        console.log(user); // Log the updated user
+        // console.log(user); // Log the updated user
 
         // Send the success response with the updated user
         const apiResponse = new ApiResponse(200, "Owner deleted successfully", user);
@@ -186,7 +186,7 @@ export const createBuilding = async (req: Request, res: Response) => {
     }
     catch (error) {
         // Handle any server error
-        console.log(error);
+        // console.log(error);
 
         return res.status(500).json({ message: "Server error", error: error });
     }
@@ -298,7 +298,7 @@ export const createPortion = async (req: Request, res: Response) => {
         return res.status(apiResponse.status).json(apiResponse);
     } catch (error) {
         // Handle any server error
-        console.log(error);
+        // console.log(error);
 
         return res.status(500).json({ message: "Server error", error: error });
     }

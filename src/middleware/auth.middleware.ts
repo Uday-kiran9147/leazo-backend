@@ -16,7 +16,7 @@ export const auth = async (req: Request, res: Response, next: NextFunction) => {
             return res.status(400).send({ error: "Please provide secret key" })
         }
         const decoded = jwt.verify(token, secretKey) as jwt.JwtPayload;
-        console.log("decoded",decoded);
+        // console.log("decoded",decoded);
         
         
         // Safely assign decoded token and extract user ID

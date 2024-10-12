@@ -12,11 +12,11 @@ dotenv.config();
 // connect to database
 connectToDatabase()
 
-console.log(process.env.DB_URL);
-console.log(process.env.JWT_SECRET);
-console.log(process.env.REFRESH_TOKEN_SECRET);
-console.log(process.env.ACCESS_TOKEN_EXPIRY);
-console.log(process.env.REFRESH_TOKEN_EXPIRY);
+// console.log(process.env.DB_URL);
+// console.log(process.env.JWT_SECRET);
+// console.log(process.env.REFRESH_TOKEN_SECRET);
+// console.log(process.env.ACCESS_TOKEN_EXPIRY);
+// console.log(process.env.REFRESH_TOKEN_EXPIRY);
 
 const app = express();
 const PORT = process.env.PORT || 3000;
