@@ -198,7 +198,7 @@ export const updateBuilding = async (req: Request, res: Response) => {
     console.log(req.originalUrl);
     // console.log(req.body.user.ownerId);
 
-    const buildingId = req.body.buildingId
+    const buildingId = req.query.buildingId
     // console.log(req.body.data);
 
 
