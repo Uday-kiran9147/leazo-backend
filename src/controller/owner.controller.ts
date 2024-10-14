@@ -372,7 +372,7 @@ export const deletePortion = async (req: Request, res: Response) => {
 export const getPortionsByBuildingId = async (req: Request, res: Response) => {
 
     try {
-        const buildingId = req.body.buildingId;
+        const buildingId = req.query.buildingId
         const portions = await Portion.find({ buildingId: buildingId });
         if(!portions) {
             return res.status(404).json({ message: "Portions not found" });
