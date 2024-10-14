@@ -42,6 +42,6 @@ const portionSchema = new mongoose.Schema<IPortion>({
     images: [{ type: String }],
     isActive: { type: Boolean, default: true },
     availabilityStatus: { type: String, required: true,enum: ['available', 'not available'] }
-});
+},{ timestamps: true });
 
 export const Portion = mongoose.model<IPortion,IPortionModel>('Portion', portionSchema);

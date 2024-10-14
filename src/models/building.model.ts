@@ -1,6 +1,6 @@
 import mongoose from "mongoose";
 
-export const addressSchema = new mongoose.Schema({
+export const addressSchema = {
     country: { type: String, required: true },
     state: { type: String, required: true },
     city: { type: String, required: true },
@@ -8,13 +8,13 @@ export const addressSchema = new mongoose.Schema({
     zipCode: { type: String, required: true },
     latitude: { type: String },
     longitude: { type: String }
-});
+};
 
 // Contact Schema
-export const contactSchema = new mongoose.Schema({
+export const contactSchema = {
     countryCode: { type: String, required: true },
     phoneNumber: { type: String, required: true }
-});
+};
 
 
 interface IBuildingMethods{
