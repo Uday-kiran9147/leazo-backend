@@ -232,7 +232,7 @@ export const updateBuilding = async (req: Request, res: Response) => {
 
 export const deleteBuilding = async (req: Request, res: Response) => {
     try {
-        const buildingId = req.body.buildingId;
+        const buildingId = req.query.buildingId;
         const ownerId = req.body.user.ownerId;
 
         // Check if buildingId and ownerId are present
@@ -249,7 +249,7 @@ export const deleteBuilding = async (req: Request, res: Response) => {
         }
 
         // Send the success response with the deleted building
-        const apiResponse = new ApiResponse(200, "Building deleted successfully", building);
+        const apiResponse = new ApiResponse(204, "Building deleted successfully", building);
         return res.status(apiResponse.status).json(apiResponse);
     } catch (error) {
         // Handle any server error
@@ -345,7 +345,7 @@ export const updatePortion = async (req: Request, res: Response) => {
 
 export const deletePortion = async (req: Request, res: Response) => {
     try {
-        const portionId = req.body.portionId;
+        const portionId = req.query.portionId;
         const ownerId = req.body.user.ownerId;
 
         // Check if buildingId and ownerId are present
@@ -362,7 +362,7 @@ export const deletePortion = async (req: Request, res: Response) => {
         }
 
         // Send the success response with the deleted building
-        const apiResponse = new ApiResponse(200, "Portion deleted successfully", portion);
+        const apiResponse = new ApiResponse(204, "Portion deleted successfully", portion);
         return res.status(apiResponse.status).json(apiResponse);
     } catch (error) {
         // Handle any server error

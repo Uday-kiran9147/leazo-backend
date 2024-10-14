@@ -65,4 +65,14 @@ buildingSchema.pre('deleteMany', async function(next) {
     next();
 });
 
+// findOneAndDelete
+buildingSchema.pre('findOneAndDelete', async function(next) {
+    const building = await this.model.findOne(this.getQuery());
+    if (building) {
+        // Ensure portions are deleted before the building
+        await mongoose.model('Portion').deleteMany({ buildingId: building._id });
+    }
+    next();
+}
+);
 export const Building = mongoose.model<IBuilding,IBuildingModel>("Building", buildingSchema);
