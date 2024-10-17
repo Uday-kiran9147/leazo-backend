@@ -2,13 +2,14 @@ import { Request, Response } from 'express';
 import { User } from '../models/user.model';
 import ApiResponse from '../utils/api_response';
 import { Portion } from '../models/portion.model';
+import { sendPushNotification } from '../utils/push_notifications';
 
 
-export const deleteUser = async (req:Request, res:Response) => {
+export const deleteUser = async (req: Request, res: Response) => {
   const user = req.body.user;
   try {
     if (user) {
-      await User.findByIdAndDelete({id:user._id})
+      await User.findByIdAndDelete({ id: user._id })
       const apiResponse = new ApiResponse(200, "User deleted successfully", null);
       return res.status(apiResponse.status).json(apiResponse);
     }
@@ -24,7 +25,7 @@ export const getAllPortions = async (req: Request, res: Response) => {
 
     // Fetch all portions from the database
     const portions = await Portion.find();
-    const apiResponse = new ApiResponse(200, "success", {count:portions.length,portions});
+    const apiResponse = new ApiResponse(200, "success", { count: portions.length, portions });
     // Return the portions with a 200 status code
     res.status(200).json(apiResponse);
   } catch (error) {
@@ -105,7 +106,9 @@ export const updateUser = async (req: Request, res: Response) => {
     if (!updatedUser) {
       return res.status(404).json({ message: "User not found" });
     }
-
+    if (user.deviceToken) {
+     await sendPushNotification(user.deviceToken, "Profile Updated 🎉", "Great job! Your profile has been successfully updated. Everything’s looking good!")
+    }
     // Return the updated user in an ApiResponse with a 200 status code
     const apiResponse = new ApiResponse(200, "User updated successfully", updatedUser);
     return res.status(apiResponse.status).json(apiResponse);

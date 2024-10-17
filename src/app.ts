@@ -5,8 +5,6 @@ import authRoutes from './routes/authRoutes';
 import { connectToDatabase } from './config/db';
 import { Request, Response } from 'express';
 import ownerRouter from './routes/ownerRoutes';
-import jwt from 'jsonwebtoken';
-// Load environment variables from .env file
 dotenv.config();
 
 // connect to database
@@ -35,4 +33,5 @@ app.get("/", (req: Request, res: Response) => {
 })
 app.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
+    // sendPushNotification("","","")
 });
