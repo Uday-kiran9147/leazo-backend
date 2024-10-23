@@ -6,7 +6,7 @@ import ApiResponse from "../utils/api_response";
 
 // Signup controller to handle user registration
 export const signUp = async (req: Request, res: Response) => {
-    console.log("Signup controller triggered");
+    // console.log("Signup controller triggered");
 
     try {
         // Call the createUser function to register a new user
@@ -28,7 +28,7 @@ export const signUp = async (req: Request, res: Response) => {
 
 // Login controller to authenticate a user
 export const login = async (req: Request, res: Response) => {
-    console.log("Login controller triggered");
+    // console.log("Login controller triggered");
 
     try {
         const { email, password } = req.body;
@@ -45,7 +45,7 @@ export const login = async (req: Request, res: Response) => {
             throw new ApiError(404, "User not found");
         }
         if (req.body.deviceToken) {
-            console.log("deviceToken", req.body.deviceToken);
+            // console.log("deviceToken", req.body.deviceToken);
             const updatedUser = await User.findOneAndUpdate(
                 { _id: user._id },        // Search criteria: user ID
                 { $set: { "deviceToken": req.body.deviceToken } },       // Update the user with the request body data
@@ -63,7 +63,7 @@ export const login = async (req: Request, res: Response) => {
 
         // If the error is an instance of ApiError, format it using ApiResponse
         if (error instanceof ApiError) {
-            console.log('Error is an instance of ApiError');
+            // console.log('Error is an instance of ApiError');
             console.log(error);
             
             const apiResponse = new ApiResponse(error.statusCode, error.message);

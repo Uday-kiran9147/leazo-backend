@@ -308,7 +308,7 @@ export const createPortion = async (req: Request, res: Response) => {
 // update a portion
 
 export const updatePortion = async (req: Request, res: Response) => {
-    console.log(req.originalUrl);
+    // console.log(req.originalUrl);
     // console.log(req.body.user.ownerId);
 
     const portionId = req.body.portionId

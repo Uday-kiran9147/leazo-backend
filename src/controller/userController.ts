@@ -21,7 +21,7 @@ export const deleteUser = async (req: Request, res: Response) => {
 // Retrieve all portions from the database
 export const getAllPortions = async (req: Request, res: Response) => {
   try {
-    console.log(req.originalUrl); // Log the original URL for debugging purposes
+    // console.log(req.originalUrl); // Log the original URL for debugging purposes
 
     // Fetch all portions from the database
     const portions = await Portion.find();
@@ -36,7 +36,7 @@ export const getAllPortions = async (req: Request, res: Response) => {
 // Retrieve all users from the database
 export const getAllUsers = async (req: Request, res: Response) => {
   try {
-    console.log(req.originalUrl); // Log the original URL for debugging purposes
+    // console.log(req.originalUrl); // Log the original URL for debugging purposes
 
     // Fetch all users from the database
     const users = await User.find();
@@ -72,7 +72,7 @@ export const getUser = async (req: Request, res: Response) => {
     // Get the user object from the request body
     const user = req.body.user;
 
-    console.log(req.originalUrl); // Log the original URL for debugging
+    // console.log(req.originalUrl); // Log the original URL for debugging
     // console.log(user._id); // Log the user ID for debugging
 
     // If the user exists, return the user in an ApiResponse
