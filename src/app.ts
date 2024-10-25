@@ -5,6 +5,7 @@ import authRoutes from './routes/authRoutes';
 import { connectToDatabase } from './config/db';
 import { Request, Response } from 'express';
 import ownerRouter from './routes/ownerRoutes';
+import filerouter from './routes/file_upload';
 dotenv.config();
 
 // connect to database
@@ -26,7 +27,7 @@ app.use(express.json());
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/owners', ownerRouter)
-
+app.use('/api',filerouter)
 
 app.get("/", (req: Request, res: Response) => {
     res.send("Welcome to LeazOOOOOOOOOO!");

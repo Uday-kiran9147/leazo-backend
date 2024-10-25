@@ -5,6 +5,7 @@ const serviceaccount = require("../../service_account.json") as admin.ServiceAcc
 
 admin.initializeApp({
   credential: admin.credential.cert(serviceaccount),
+  storageBucket:"gs://leazoo.appspot.com"
 });
 
 
