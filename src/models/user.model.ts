@@ -70,7 +70,6 @@ userSchema.methods.generateAccessToken = async function (): Promise<string> {
     throw new ApiError(400, "JWT Secret Key not found");
   }
   const token = jwt.sign({ _id: user._id.toString() }, secretKey);
-  log("Token Generated", token);
   return token;
 };
 

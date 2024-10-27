@@ -285,6 +285,7 @@ export const createPortion = async (req: Request, res: Response) => {
         // }
 
         // Create a new building object with the request body
+        
         const portion = new Portion(req.body);
 
         // Save the new building to the database
