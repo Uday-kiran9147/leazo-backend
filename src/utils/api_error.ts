@@ -1,8 +1,11 @@
+import mongoose from "mongoose";
+import ApiResponse from "./api_response";
+
 class ApiError extends Error {
     public statusCode: number;
     public message: string;
-    
-    constructor(statusCode: number, message: string, stack: string = '') {
+
+    constructor(statusCode: number, message: string, stack: any = '') {
         super(message);
 
         this.statusCode = statusCode;
@@ -15,19 +18,32 @@ class ApiError extends Error {
     }
 }
 
-// Error handling function
-const handleError = (error:any) => {
-    if (error.response) {
-        // The request was made and the server responded with a status code
-        console.error('Error:', error.response.data);
-        console.error('Status:', error.response.status);
-        console.error('Headers:', error.response.headers);
-    } else if (error.request) {
-        // The request was made but no response was received
-        console.error('Error: No response received', error.request);
-    } else {
-        // Something happened in setting up the request
-        console.error('Error:', error.message);
+export const handleError = (error: any, req: any, res: any): ApiResponse => {
+    let apiResponse: ApiResponse;
+
+    // Known API error handling
+    if (error instanceof ApiError) {
+        apiResponse = new ApiResponse(error.statusCode, error.message, error);
+        console.error('API Error:', error.message);
+        return apiResponse;
+        // return res.status(error.statusCode).json(apiResponse);
     }
+    // Handle Mongoose validation errors
+    if (error instanceof mongoose.Error.ValidationError) {
+        const errors: any = Object.values(error.errors).map((val: any) => val.message);
+        apiResponse = new ApiResponse(400, errors.join(', '), error);
+    } else if (error.name === 'CastError') {
+        // Handle Mongoose CastError
+        const message = `Resource not found. Invalid ${error.path}: ${error.value}`;
+        apiResponse = new ApiResponse(404, message, error);
+    }
+
+    else {
+        // Fallback for unknown errors
+        console.error('Unhandled Error:', error);
+        apiResponse = new ApiResponse(500, error.message, error);
+    }
+    // return res.status(500).json(apiResponse);
+    return apiResponse;
 };
 export default ApiError;

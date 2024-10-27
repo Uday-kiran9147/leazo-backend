@@ -3,6 +3,7 @@ import { User } from '../models/user.model';
 import ApiResponse from '../utils/api_response';
 import { Portion } from '../models/portion.model';
 import { sendPushNotification } from '../utils/push_notifications';
+import { handleError } from '../utils/api_error';
 
 
 export const deleteUser = async (req: Request, res: Response) => {
@@ -15,7 +16,8 @@ export const deleteUser = async (req: Request, res: Response) => {
     }
     return res.status(404).json({ message: 'User not found' });
   } catch (error) {
-    return res.status(500).json({ message: 'Server error' });
+    let apiResponse: ApiResponse = handleError(error, req, res);
+    return res.status(apiResponse.status).json(apiResponse);
   }
 }
 // Retrieve all portions from the database
@@ -30,7 +32,8 @@ export const getAllPortions = async (req: Request, res: Response) => {
     res.status(200).json(apiResponse);
   } catch (error) {
     // Handle any server errors
-    res.status(500).json({ message: 'Server error' });
+    let apiResponse: ApiResponse = handleError(error, req, res);
+    return res.status(apiResponse.status).json(apiResponse);
   }
 };
 // Retrieve all users from the database
@@ -42,10 +45,12 @@ export const getAllUsers = async (req: Request, res: Response) => {
     const users = await User.find();
 
     // Return the users with a 200 status code
-    res.status(200).json(users);
+    let apiResponse = new ApiResponse(200, "success", { count: users.length, users });
+    res.status(apiResponse.status).json(apiResponse);
   } catch (error) {
     // Handle any server errors
-    res.status(500).json({ message: 'Server error' });
+    let apiResponse: ApiResponse = handleError(error, req, res);
+    return res.status(apiResponse.status).json(apiResponse);
   }
 };
 
@@ -59,10 +64,15 @@ export const createUser = async (req: Request, res: Response) => {
     await user.save();
 
     // Return the newly created user with a 201 status code
-    res.status(201).json({ user });
+    var response = new ApiResponse(201, "Account created successfully", user);
+    res.status(response.status).json(response);
   } catch (error) {
     // Handle any server errors and return a 500 status code with the error message
-    res.status(500).json({ message: 'Server error', error: error });
+    // if (error instanceof ApiError) {
+    // console.log('Instance error: ' + error.message);
+    let apiResponse: ApiResponse = handleError(error, req, res);
+    return res.status(apiResponse.status).json(apiResponse);
+    // return res.status(apiResponse.status).json(apiResponse);
   }
 };
 
@@ -77,43 +87,64 @@ export const getUser = async (req: Request, res: Response) => {
 
     // If the user exists, return the user in an ApiResponse
     if (user) {
-      const apiResponse = new ApiResponse(200, "success", user);
+      const apiResponse = new ApiResponse(200, "User fetched successfully", user);
       return res.status(apiResponse.status).json(apiResponse);
     }
 
     // If the user is not found, return a 404 error
-    return res.status(404).json({ message: 'User not found' });
+    const apiResponse = new ApiResponse(404, "User not found", null);
+    return res.status(apiResponse.status).json(apiResponse);
   } catch (error) {
     // Handle any server errors and return a 500 status code
-    return res.status(500).json({ message: 'Server error' });
+    let apiResponse: ApiResponse = handleError(error, req, res);
+    return res.status(apiResponse.status).json(apiResponse);
   }
 };
 
 // Update an existing user based on the request body data
 export const updateUser = async (req: Request, res: Response) => {
   // Get the user object from the request body
+  let missingFields: string[] = [];
+
+  const { firstName, lastName } = req.body;
+
+  if (!firstName && !lastName) {
+    missingFields.push('firstName');
+    missingFields.push('lastName');
+    return res.status(400).json(new ApiResponse(400, `Please provide any of ${missingFields.join(',')}`, null));
+  }
   const user = req.body.user;
 
+
+  let apiResponse: ApiResponse;
   try {
     // Find the user by ID and update their information
     const updatedUser = await User.findOneAndUpdate(
       { _id: user._id },        // Search criteria: user ID
-      { $set: req.body },       // Update the user with the request body data
+      {
+        $set:
+        {
+          firstName: firstName,
+          lastName: lastName,
+        }
+      },       // Update the user with the request body data
       { new: true, runValidators: true } // Return the updated user and run validations
     );
 
     // If the user is not found, return a 404 error
     if (!updatedUser) {
-      return res.status(404).json({ message: "User not found" });
+      apiResponse = new ApiResponse(404, "User not found", null);
+      return res.status(apiResponse.status).json(apiResponse);
     }
     if (user.deviceToken) {
-     await sendPushNotification(user.deviceToken, "Profile Updated 🎉", "Great job! Your profile has been successfully updated. Everything’s looking good!")
+      await sendPushNotification(user.deviceToken, "Profile Updated 🎉", "Great job! Your profile has been successfully updated. Everything’s looking good!")
     }
     // Return the updated user in an ApiResponse with a 200 status code
-    const apiResponse = new ApiResponse(200, "User updated successfully", updatedUser);
+    apiResponse = new ApiResponse(200, "User updated successfully", updatedUser);
     return res.status(apiResponse.status).json(apiResponse);
   } catch (error) {
     // Handle any server errors and return a 500 status code with the error message
-    return res.status(500).json({ message: "Server error", error: error });
+    let apiResponse: ApiResponse = handleError(error, req, res);
+    return res.status(apiResponse.status).json(apiResponse);
   }
 };

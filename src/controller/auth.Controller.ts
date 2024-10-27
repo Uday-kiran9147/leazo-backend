@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import { User } from "../models/user.model";
 import { createUser, updateUser } from "./userController";
-import ApiError from "../utils/api_error";
+import ApiError, { handleError } from "../utils/api_error";
 import ApiResponse from "../utils/api_response";
 
 // Signup controller to handle user registration
@@ -12,17 +12,8 @@ export const signUp = async (req: Request, res: Response) => {
         // Call the createUser function to register a new user
         await createUser(req, res);
     } catch (error: any) {
-        console.error('Error in signUp:', error);
-
-        // If the error is an instance of ApiError, format it using ApiResponse
-        if (error instanceof ApiError) {
-            const apiResponse = new ApiResponse(error.statusCode, error.message, null);
-            return res.status(error.statusCode).json(apiResponse);
-        }
-
-        // If it's a generic error, return a 500 Internal Server Error
-        const apiResponse = new ApiResponse(500, "Internal server error", null);
-        return res.status(500).json(apiResponse);
+        let apiresponse = handleError(error,req,res)
+        return res.status(apiresponse.status).json(apiresponse)
     }
 };
 
@@ -60,18 +51,18 @@ export const login = async (req: Request, res: Response) => {
         return res.status(200).json(apiResponse);
     } catch (error: any) {
         // console.error('Error in login:', error.message); 
-
+        
         // If the error is an instance of ApiError, format it using ApiResponse
-        if (error instanceof ApiError) {
-            // console.log('Error is an instance of ApiError');
-            console.log(error);
+        // if (error instanceof ApiError) {
+        //     console.log('Error is an instance of ApiError');
+        //     console.log(error);
             
-            const apiResponse = new ApiResponse(error.statusCode, error.message);
-            return res.status(error.statusCode).json(apiResponse);
-        }
+        //     const apiResponse = new ApiResponse(error.statusCode, error.message);
+        //     return res.status(error.statusCode).json(apiResponse);
+        // }
 
         // For generic errors, return a 500 Internal Server Error
-        const apiResponse = new ApiResponse(500, "Internal server error");
-        return res.status(500).json(apiResponse);
+        const apiResponse = handleError(error,req,res);
+        return res.status(apiResponse.status).json(apiResponse);
     }
 };

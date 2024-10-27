@@ -48,12 +48,13 @@ const userSchema = new Schema<IUser>({
     trim: true,
     validate: (value: string) => {
       if (!validator.isEmail(value)) {
-        throw new ApiError(400,"Invalid Email Address");
+        throw new mongoose.Error.ValidationError(
+        );
       }
     },
   },
   password: { type: String, required: true },
-  phoneNumber: { type: String,},
+  phoneNumber: { type: String, },
   properties: [{ type: String }],
   deviceToken: { type: String },
   isOwner: { type: Boolean, default: false },
@@ -84,7 +85,7 @@ userSchema.methods.generateRefreshToken = async function (): Promise<string> {
     throw new ApiError(400, "JWT Secret Key not found");
   }
   const token = jwt.sign({ _id: user._id.toString() }, secretKey, { expiresIn: "7d" });
-  log("Token Generated", token);
+  // log("Token Generated", token);
   return token;
 }
 
@@ -95,17 +96,19 @@ userSchema.statics.findByCredentials = async function (
   password: string
 ): Promise<IUser | null> {
   const user = await User.findOne({ email });
+
+  // If no user is found, throw an API error
   if (!user) {
-    throw new ApiError(404,"User not found");
+    throw new ApiError(404, "No user matches the provided details.");
   }
 
   // Compare the provided password with the hashed password
   const isMatch = await bcrypt.compare(password, user.password);
   if (!isMatch) {
-    throw new ApiError(400 ,"Invalid login credentials");
+    throw new ApiError(400, "The password you entered is incorrect. Please try again."); // Throw the error if the password is incorrect
   }
 
-  return user;
+  return user; // Return the user if the email and password match
 };
 
 // Pre-save hook for password hashing
@@ -120,7 +123,7 @@ userSchema.pre('save', async function (next) {
 });
 
 // Cascade delete owner when a user is deleted
-userSchema.pre('findOneAndDelete', async function(next) {
+userSchema.pre('findOneAndDelete', async function (next) {
   const user = await this.model.findOne(this.getQuery());
   if (user && user.ownerId) {
     await mongoose.model('Owner').findByIdAndDelete(user.ownerId);
