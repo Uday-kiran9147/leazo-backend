@@ -101,6 +101,8 @@ export const createUser = async (req: Request, res: Response) => {
   async function sendNewUserNotification() {
     if (user.deviceToken) {
       await sendPushNotification(user.deviceToken, "Welcome to Leazo! 🏡", "Your account has been successfully created. Explore amazing rooms available for rent and start your journey with Leazo!");
+      console.log("Push notification sent to new user");
+      
     }
   }
 };
