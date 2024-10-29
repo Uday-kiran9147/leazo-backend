@@ -79,33 +79,46 @@ export const getAllUsers = async (req: Request, res: Response) => {
     return res.status(apiResponse.status).json(apiResponse);
   }
 };
+
+
 export const createUser = async (req: Request, res: Response) => {
   const user = new User(req.body);
   try {
     await user.save();
+    console.log("User saved:", user);
 
-    // Create the response to send back to the client
     const response = new ApiResponse(201, "Account created successfully", user);
     res.status(response.status).json(response);
 
-    // Wait for 5 minutes (300,000 milliseconds) and then send push notifications
     setTimeout(async () => {
-      await sendNewUserNotification();
-    }, 300000); // 300,000 milliseconds = 5 minutes
+      try {
+        await sendNewUserNotification();
+        console.log("Profile update notification sent successfully");
+      } catch (error) {
+        console.error("Failed to send profile update notification:", error);
+      }
+    }, 5 * 60000); // 5 minutes
+
 
   } catch (error) {
     const apiResponse: ApiResponse = handleError(error, req, res);
     return res.status(apiResponse.status).json(apiResponse);
   }
-  // send notification fn
+
   async function sendNewUserNotification() {
     if (user.deviceToken) {
-      await sendPushNotification(user.deviceToken, "Welcome to Leazo! 🏡", "Your account has been successfully created. Explore amazing rooms available for rent and start your journey with Leazo!");
-      console.log("Push notification sent to new user");
-      
+      try {
+        await sendPushNotification(user.deviceToken, "Welcome to Leazo! 🏡", "Your account has been successfully created. Explore amazing rooms available for rent and start your journey with Leazo!");
+        console.log("Push notification sent to new user");
+      } catch (error) {
+        console.error("Failed to send push notification:", error);
+      }
+    } else {
+      console.warn("No device token found for user. Notification not sent.");
     }
   }
 };
+
 
 
 
@@ -182,7 +195,16 @@ export const updateUser = async (req: Request, res: Response) => {
       apiResponse = new ApiResponse(404, "User not found", null);
       return res.status(apiResponse.status).json(apiResponse);
     }
-    await sendProfileUpdateNotification();
+
+    setTimeout(async () => {
+      try {
+        await sendProfileUpdateNotification();
+        console.log("Profile update notification sent successfully");
+      } catch (error) {
+        console.error("Failed to send profile update notification:", error);
+      }
+    }, 30000); // 30 seconds
+
 
     apiResponse = new ApiResponse(200, "User updated successfully", updatedUser);
     return res.status(apiResponse.status).json(apiResponse);
