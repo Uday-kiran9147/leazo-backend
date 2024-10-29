@@ -1,6 +1,21 @@
 import mongoose from "mongoose";
 import ApiResponse from "./api_response";
 
+/**
+ * Represents an API error with a specific status code and message.
+ * Extends the built-in Error class.
+ * 
+ * @class ApiError
+ * @extends {Error}
+ * 
+ * @property {number} statusCode - The HTTP status code associated with the error.
+ * @property {string} message - The error message.
+ * 
+ * @constructor
+ * @param {number} statusCode - The HTTP status code associated with the error.
+ * @param {string} message - The error message.
+ * @param {any} [stack=''] - Optional stack trace information. If not provided, the stack trace is captured automatically.
+ */
 class ApiError extends Error {
     public statusCode: number;
     public message: string;
@@ -18,6 +33,26 @@ class ApiError extends Error {
     }
 }
 
+/**
+ * Handles various types of errors and returns a standardized API response.
+ *
+ * @param error - The error object that was thrown.
+ * @param req - The Express request object.
+ * @param res - The Express response object.
+ * @returns An ApiResponse object containing the status code, message, and error details.
+ *
+ * Known error handling includes:
+ * - `ApiError`: Custom API errors with specific status codes and messages.
+ * - `mongoose.Error.ValidationError`: Mongoose validation errors.
+ * - `CastError`: Mongoose cast errors for invalid object IDs.
+ * - `DocumentNotFoundError`: Mongoose errors when a document is not found.
+ * - `MongoNetworkError`: Database connectivity issues.
+ * - `JsonWebTokenError`: JWT token errors for invalid tokens.
+ * - `TokenExpiredError`: JWT token errors for expired tokens.
+ * - Duplicate key errors (MongoDB unique constraint violations).
+ *
+ * For any unhandled errors, a generic 500 status code response is returned.
+ */
 export const handleError = (error: any, req: any, res: any): ApiResponse => {
     let apiResponse: ApiResponse;
 
