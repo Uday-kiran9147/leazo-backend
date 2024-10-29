@@ -4,6 +4,7 @@ import ApiResponse from "../utils/api_response";
 import { User } from '../models/user.model';
 import { Building } from '../models/building.model';
 import { Portion } from '../models/portion.model';
+import { handleError } from '../utils/api_error';
 
 // Create a new owner
 export const createOwner = async (req: Request, res: Response) => {
@@ -14,7 +15,8 @@ export const createOwner = async (req: Request, res: Response) => {
 
         // If the user is already an owner, return an error
         if (isOwner == true) {
-            return res.status(400).json({ message: "User is already an owner" });
+            let apiResponse: ApiResponse = new ApiResponse(400, "Owner already exists", null);
+            return res.status(apiResponse.status).json(apiResponse);
         }
 
         // Create a new owner object with the request body
@@ -34,7 +36,8 @@ export const createOwner = async (req: Request, res: Response) => {
         return res.status(apiResponse.status).json(apiResponse);
     } catch (error) {
         // Handle any server error
-        return res.status(500).json({ error: error });
+        let apiResponse: ApiResponse = handleError(error, req, res);
+        return res.status(apiResponse.status).json(apiResponse);
     }
 };
 
@@ -42,7 +45,7 @@ export const createOwner = async (req: Request, res: Response) => {
 export const updateOwner = async (req: Request, res: Response) => {
     console.log(req.originalUrl); // Log the URL
     // console.log(req.body.user.ownerId); // Log the ownerId
-
+    const { ownerName, contactNumber } = req.body;
     try {
         const ownerId = req.body.user.ownerId;
 
@@ -65,7 +68,8 @@ export const updateOwner = async (req: Request, res: Response) => {
         return res.status(apiResponse.status).json(apiResponse);
     } catch (error) {
         // Handle any server error
-        return res.status(500).json({ message: "Server error", error: error });
+        let apiResponse: ApiResponse = handleError(error, req, res);
+        return res.status(apiResponse.status).json(apiResponse);
     }
 };
 
@@ -92,7 +96,7 @@ export const deleteOwner = async (req: Request, res: Response) => {
         const user = await User.findOneAndUpdate(
             { _id: userId },
             {
-                $set:{
+                $set: {
                     isOwner: false, // Mark user as not being an owner
                     ownerId: null,  // Remove the ownerId reference
                 }
@@ -112,7 +116,8 @@ export const deleteOwner = async (req: Request, res: Response) => {
         return res.status(apiResponse.status).json(apiResponse);
     } catch (error) {
         // Handle any server error
-        return res.status(500).json({ message: "Server error", error: error });
+        let apiResponse: ApiResponse = handleError(error, req, res);
+        return res.status(apiResponse.status).json(apiResponse);
     }
 };
 
@@ -127,7 +132,8 @@ export const getOwners = async (req: Request, res: Response) => {
         return res.status(apiResponse.status).json(apiResponse);
     } catch (error) {
         // Handle any server error
-        return res.status(500).json({ message: "Server error", error: error });
+        let apiResponse: ApiResponse = handleError(error, req, res);
+        return res.status(apiResponse.status).json(apiResponse);
     }
 };
 
@@ -149,7 +155,8 @@ export const getOwnerById = async (req: Request, res: Response) => {
         return res.status(apiResponse.status).json(apiResponse);
     } catch (error) {
         // Handle any server error
-        return res.status(500).json({ message: "Server error", error: error });
+        let apiResponse: ApiResponse = handleError(error, req, res);
+        return res.status(apiResponse.status).json(apiResponse);
     }
 };
 
@@ -157,11 +164,11 @@ export const createBuilding = async (req: Request, res: Response) => {
     console.log(req.originalUrl);
 
     try {
-        const ownerId = req.body.user.ownerId; // Get the ownerId from request body
+        const ownerId = req.body.ownerId; // Get the ownerId from request body
 
         // Find the owner by ownerId
         const owner = await Owner.findOne({ _id: ownerId });
-        
+
 
         // If owner not found, return a 404 error
         if (!owner) {
@@ -174,11 +181,10 @@ export const createBuilding = async (req: Request, res: Response) => {
         // Save the new building to the database
 
         await building.save();
-        // Update user colletion with the building id
 
-        const buildingId = building._id.toString();
-        
-        
+        // const buildingId = building._id.toString();
+
+
         // Send the success response with the new building
         const apiResponse = new ApiResponse(201, "Building created successfully", building);
 
@@ -188,46 +194,73 @@ export const createBuilding = async (req: Request, res: Response) => {
         // Handle any server error
         // console.log(error);
 
-        return res.status(500).json({ message: "Server error", error: error });
+        let apiResponse: ApiResponse = handleError(error, req, res);
+        return res.status(apiResponse.status).json(apiResponse);
     }
 }
 
-// update a building
 
+
+/**
+ * Updates a building with the provided data.
+ *
+ * This function handles the update of a building by its ID, ensuring that certain fields are not allowed to be updated.
+ * It validates the update operations and returns appropriate responses based on the success or failure of the update.
+ *
+ * @param req - The request object containing the building ID in the query and the update data in the body.
+ * @param res - The response object used to send back the appropriate HTTP response.
+ * @returns A promise that resolves to the HTTP response indicating the result of the update operation.
+ *
+ * @remarks
+ * - The function checks if the updates contain any fields that are not allowed to be updated.
+ * - If the updates are valid, it attempts to find and update the building with the provided data.
+ * - If the building is not found, it returns a 404 error.
+ * - If the update is successful, it returns a 200 response with the updated building data.
+ * - If there is a server error, it handles the error and returns an appropriate response.
+ */
 export const updateBuilding = async (req: Request, res: Response) => {
     console.log(req.originalUrl);
-    // console.log(req.body.user.ownerId);
 
-    const buildingId = req.query.buildingId
-    // console.log(req.body.data);
+    const buildingId = req.query.buildingId;
+    const notAllowedUpdates = ['ownerId'];
+    const updates = Object.keys(req.body.data);
 
+    /**
+     * Checks if any of the updates are invalid operations.
+     *
+     * This function iterates over each update and checks if it is included in the list of not allowed updates.
+     *
+     * @param updates - An array of update strings to be checked.
+     * @returns A boolean indicating whether any updates are invalid operations.
+     */
+    const hasInvalidOperation = updates.some((update) => notAllowedUpdates.includes(update));
+
+    if (hasInvalidOperation) {
+        return res.status(400).json({ message: 'Invalid updates: ownerId cannot be updated!' });
+    }
 
     try {
-        // const ownerId = req.body.user.ownerId;
-
-        // Find the owner by ownerId and update with request body data
+        // Find the building by buildingId and update with the provided data
         const building = await Building.findOneAndUpdate(
             { _id: buildingId },
-            { $set: req.body.data }, // Set new data for the owner
-            { runValidators: true, new: true }  // Return the updated owner and validate data
+            { $set: req.body.data }, // Set new data for the building
+            { runValidators: true, new: true }  // Return the updated building and validate data
         );
 
-        // If owner not found, return a 404 error
+        // If the building is not found, return a 404 error
         if (!building) {
             return res.status(404).json({ message: "Building not found" });
         }
 
-        // console.log(building); // Log the updated owner
-
-        // Send the success response with the updated owner
+        // Send the success response with the updated building
         const apiResponse = new ApiResponse(200, "Building updated successfully", building);
         return res.status(apiResponse.status).json(apiResponse);
     } catch (error) {
         // Handle any server error
-        return res.status(500).json({ message: "Server error", error: error });
+        let apiResponse: ApiResponse = handleError(error, req, res);
+        return res.status(apiResponse.status).json(apiResponse);
     }
 };
-
 // delete a building
 
 export const deleteBuilding = async (req: Request, res: Response) => {
@@ -253,7 +286,8 @@ export const deleteBuilding = async (req: Request, res: Response) => {
         return res.status(apiResponse.status).json(apiResponse);
     } catch (error) {
         // Handle any server error
-        return res.status(500).json({ message: "Server error", error: error });
+        let apiResponse: ApiResponse = handleError(error, req, res);
+        return res.status(apiResponse.status).json(apiResponse);
     }
 };
 export const getOwnerBuildings = async (req: Request, res: Response) => {
@@ -266,7 +300,8 @@ export const getOwnerBuildings = async (req: Request, res: Response) => {
         const apiResponse = new ApiResponse(200, "Buildings retrieved successfully", { count: buildings.length, buildings });
         return res.status(apiResponse.status).json(apiResponse);
     } catch (error) {
-        return res.status(500).json({ message: "Server error", error: error });
+        let apiResponse: ApiResponse = handleError(error, req, res);
+        return res.status(apiResponse.status).json(apiResponse);
     }
 }
 
@@ -277,15 +312,19 @@ export const createPortion = async (req: Request, res: Response) => {
         const ownerId = req.body.user.ownerId; // Get the ownerId from request body
 
         // Find the owner by ownerId
-        // const owner = await Owner.findOne({ _id: ownerId });
+        const owner = await Owner.findOne({ _id: ownerId });
 
         // If owner not found, return a 404 error
-        // if (!owner) {
-        //     return res.status(404).json({ message: "Owner not found" });
-        // }
+        if (!owner) {
+            return res.status(404).json({ message: "Owner not found" });
+        }
 
         // Create a new building object with the request body
-        
+
+        const building = await Building.findOne({ _id: req.body.buildingId });
+        if (!building) {
+            return res.status(404).json({ message: "Building not found" });
+        }
         const portion = new Portion(req.body);
 
         // Save the new building to the database
@@ -301,7 +340,8 @@ export const createPortion = async (req: Request, res: Response) => {
         // Handle any server error
         // console.log(error);
 
-        return res.status(500).json({ message: "Server error", error: error });
+        let apiResponse: ApiResponse = handleError(error, req, res);
+        return res.status(apiResponse.status).json(apiResponse);
     }
 }
 
@@ -314,7 +354,14 @@ export const updatePortion = async (req: Request, res: Response) => {
 
     const portionId = req.body.portionId
     // console.log(req.body.data);
+    const notAllowedUpdates = ["ownerId", "buildingId"];
+    const updates = Object.keys(req.body.data);
 
+    const hasInvalidOperation = updates.some((update) => notAllowedUpdates.includes(update));
+
+    if (hasInvalidOperation) {
+        return res.status(400).json({ message: 'Invalid updates: ownerId and buildingId cannot be updated!' });
+    }
 
     try {
         // const ownerId = req.body.user.ownerId;
@@ -338,7 +385,8 @@ export const updatePortion = async (req: Request, res: Response) => {
         return res.status(apiResponse.status).json(apiResponse);
     } catch (error) {
         // Handle any server error
-        return res.status(500).json({ message: "Server error", error: error });
+        let apiResponse: ApiResponse = handleError(error, req, res);
+        return res.status(apiResponse.status).json(apiResponse);
     }
 }
 
@@ -367,7 +415,8 @@ export const deletePortion = async (req: Request, res: Response) => {
         return res.status(apiResponse.status).json(apiResponse);
     } catch (error) {
         // Handle any server error
-        return res.status(500).json({ message: "Server error", error: error });
+        let apiResponse: ApiResponse = handleError(error, req, res);
+        return res.status(apiResponse.status).json(apiResponse);
     }
 };
 export const getPortionsByBuildingId = async (req: Request, res: Response) => {
@@ -375,12 +424,13 @@ export const getPortionsByBuildingId = async (req: Request, res: Response) => {
     try {
         const buildingId = req.query.buildingId
         const portions = await Portion.find({ buildingId: buildingId });
-        if(!portions) {
+        if (!portions) {
             return res.status(404).json({ message: "Portions not found" });
         }
         const apiResponse = new ApiResponse(200, "Portions retrieved successfully", { count: portions.length, portions });
         return res.status(apiResponse.status).json(apiResponse);
     } catch (error) {
-        return res.status(500).json({ message: "Server error", error: error });
+        let apiResponse: ApiResponse = handleError(error, req, res);
+        return res.status(apiResponse.status).json(apiResponse);
     }
 }
