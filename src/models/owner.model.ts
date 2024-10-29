@@ -1,5 +1,6 @@
 
 import mongoose from "mongoose"
+import { contactSchema } from "./building.model";
 
 
 // User -> userSchema -> IUser -> IUserMethods
@@ -13,7 +14,7 @@ interface IOwner extends mongoose.Document, IOwnerMethods {
     _id: mongoose.Types.ObjectId;
     userId: mongoose.Types.ObjectId;
     ownerName: string;
-    contactNumber: string;
+    contactNumber: any;
     email: string;
 }
 
@@ -26,7 +27,7 @@ var ownerSchema = new mongoose.Schema<IOwner>(
     {
         userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
         ownerName: { type: String, required: true,trim:true },
-        contactNumber: { type: String, required: true },
+        contactNumber: { type: contactSchema, required: true },
         email: { type: String, required: true,trim:true },
     },
     {
