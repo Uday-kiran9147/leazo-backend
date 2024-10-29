@@ -85,7 +85,7 @@ export const createUser = async (req: Request, res: Response) => {
   const user = new User(req.body);
   try {
     await user.save();
-    console.log("User saved:", user);
+    // console.log("User saved:", user);
 
     const response = new ApiResponse(201, "Account created successfully", user);
     res.status(response.status).json(response);
@@ -93,11 +93,11 @@ export const createUser = async (req: Request, res: Response) => {
     setTimeout(async () => {
       try {
         await sendNewUserNotification();
-        console.log("Profile update notification sent successfully");
+        console.log("New User notification sent successfully");
       } catch (error) {
-        console.error("Failed to send profile update notification:", error);
+        console.error("Failed to send New User notification:", error);
       }
-    }, 5 * 60000); // 5 minutes
+    }, 5*60000); // 5 minutes
 
 
   } catch (error) {
