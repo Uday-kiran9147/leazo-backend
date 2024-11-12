@@ -4,6 +4,8 @@ import ApiResponse from '../utils/api_response';
 import { Portion } from '../models/portion.model';
 import { sendPushNotification } from '../utils/push_notifications';
 import { handleError } from '../utils/api_error';
+import { RedisClientManager } from '../cache/RedisClientManager';
+
 /**
  * Deletes a user based on the provided request body.
  *
@@ -31,6 +33,11 @@ export const deleteUser = async (req: Request, res: Response) => {
        * @property {string} message - A message indicating the user was deleted successfully.
        * @property {null} data - No additional data is provided in this response.
        */
+
+      // Clear the user cache after deleting a user
+      await RedisClientManager.delete(`user:${user._id}`);
+      await RedisClientManager.delete("users:all");
+
       const apiResponse: ApiResponse = new ApiResponse(204, "User deleted successfully", null);
       return res.status(apiResponse.status).json(apiResponse);
     }
@@ -52,11 +59,27 @@ export const deleteUser = async (req: Request, res: Response) => {
  */
 export const getAllPortions = async (req: Request, res: Response) => {
   try {
+    const cacheKey = "portions:all";
+    const cachedPortions = await RedisClientManager.get(cacheKey);
+
+    if (cachedPortions) {
+      console.log("Serving portions from cache");
+      const apiResponse = new ApiResponse(200, "success", JSON.parse(cachedPortions));
+      console.log("Cache Hit");
+      
+      return res.status(apiResponse.status).json(apiResponse);
+    }
+
     const portions = await Portion.find();
-    const apiResponse = new ApiResponse(200, "success", { count: portions.length, portions });
-    return res.status(200).json(apiResponse);
+    const responseData = { count: portions.length, portions };
+
+    // Cache result with expiration time
+    await RedisClientManager.set(cacheKey, JSON.stringify(responseData),);
+
+    const apiResponse = new ApiResponse(200, "success", responseData);
+    return res.status(apiResponse.status).json(apiResponse);
   } catch (error) {
-    let apiResponse: ApiResponse = handleError(error, req, res);
+    const apiResponse: ApiResponse = handleError(error, req, res);
     return res.status(apiResponse.status).json(apiResponse);
   }
 };
@@ -71,11 +94,28 @@ export const getAllPortions = async (req: Request, res: Response) => {
  */
 export const getAllUsers = async (req: Request, res: Response) => {
   try {
+    // Check Redis cache
+    const cacheKey = "users:all";
+    const cachedUsers = await RedisClientManager.get(cacheKey);
+
+    if (cachedUsers) {
+      console.log("Serving from cache");
+      const apiResponse = new ApiResponse(200, "success", JSON.parse(cachedUsers));
+      console.log("Cache Hit");
+      return res.status(apiResponse.status).json(apiResponse);
+    }
+
+    // Fetch from database if not in cache
     const users = await User.find();
-    let apiResponse = new ApiResponse(200, "success", { count: users.length, users });
+    const responseData = { count: users.length, users };
+
+    // Cache result with expiration time
+    await RedisClientManager.set(cacheKey, JSON.stringify(responseData), /* 300 */); // cache for 5 minutes
+
+    const apiResponse = new ApiResponse(200, "success", responseData);
     return res.status(apiResponse.status).json(apiResponse);
   } catch (error) {
-    let apiResponse: ApiResponse = handleError(error, req, res);
+    const apiResponse: ApiResponse = handleError(error, req, res);
     return res.status(apiResponse.status).json(apiResponse);
   }
 };
@@ -85,10 +125,11 @@ export const createUser = async (req: Request, res: Response) => {
   const user = new User(req.body);
   try {
     await user.save();
-    // console.log("User saved:", user);
-
     const response = new ApiResponse(201, "Account created successfully", user);
     res.status(response.status).json(response);
+
+    // Clear the users list cache after creating a new user
+    await RedisClientManager.delete("users:all");
 
     setTimeout(async () => {
       try {
@@ -97,8 +138,7 @@ export const createUser = async (req: Request, res: Response) => {
       } catch (error) {
         console.error("Failed to send New User notification:", error);
       }
-    }, 5*60000); // 5 minutes
-
+    }, 5 * 60000); // 5 minutes
 
   } catch (error) {
     const apiResponse: ApiResponse = handleError(error, req, res);
@@ -134,17 +174,32 @@ export const createUser = async (req: Request, res: Response) => {
 export const getUser = async (req: Request, res: Response) => {
   try {
     const user = req.body.user;
+
     if (user) {
+      const cacheKey = `user:${user._id}`;
+      const cachedUser = await RedisClientManager.get(cacheKey);
+
+      if (cachedUser) {
+        console.log("Serving user from cache");
+        const apiResponse = new ApiResponse(200, "User fetched successfully", JSON.parse(cachedUser));
+        return res.status(apiResponse.status).json(apiResponse);
+      }
+
+      // Cache miss: store fetched user data in Redis
+      await RedisClientManager.set(cacheKey, JSON.stringify(user),); // cache for 5 minutes
+
       const apiResponse = new ApiResponse(200, "User fetched successfully", user);
       return res.status(apiResponse.status).json(apiResponse);
     }
+
     const apiResponse = new ApiResponse(404, "User not found", null);
     return res.status(apiResponse.status).json(apiResponse);
   } catch (error) {
-    let apiResponse: ApiResponse = handleError(error, req, res);
+    const apiResponse: ApiResponse = handleError(error, req, res);
     return res.status(apiResponse.status).json(apiResponse);
   }
 };
+
 /**
  * Updates the user's first name and last name.
  * 
@@ -195,6 +250,10 @@ export const updateUser = async (req: Request, res: Response) => {
       apiResponse = new ApiResponse(404, "User not found", null);
       return res.status(apiResponse.status).json(apiResponse);
     }
+
+    // Clear the user cache after updating a user
+    await RedisClientManager.delete(`user:${user._id}`);
+    await RedisClientManager.delete("users:all");
 
     setTimeout(async () => {
       try {

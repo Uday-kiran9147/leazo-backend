@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import { User } from "../models/user.model";
-import { createUser, updateUser } from "./userController";
+import { createUser, updateUser } from "./user.controller";
 import ApiError, { handleError } from "../utils/api_error";
 import ApiResponse from "../utils/api_response";
 
