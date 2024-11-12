@@ -28,6 +28,7 @@ import { Portion } from '../models/portion.model';
  * Importing the handleError utility for standardized error handling.
  */
 import { handleError } from '../utils/api_error';
+import { RedisClientManager } from '../cache/RedisClientManager';
 
 /**
  * Creates a new owner and associates it with a user.
@@ -359,6 +360,7 @@ export const getOwnerBuildings = async (req: Request, res: Response) => {
  */
 export const createPortion = async (req: Request, res: Response) => {
     try {
+        const cacheKey = `portions:all`;
         const ownerId = req.body.user.ownerId;
         const owner = await Owner.findOne({ _id: ownerId });
         if (!owner) {
@@ -371,6 +373,9 @@ export const createPortion = async (req: Request, res: Response) => {
         const portion = new Portion(req.body);
         await portion.save();
         const apiResponse = new ApiResponse(201, "Portion created successfully", portion);
+
+        // Delete from cache
+        await RedisClientManager.delete(cacheKey);
         return res.status(apiResponse.status).json(apiResponse);
     } catch (error) {
         let apiResponse: ApiResponse = handleError(error, req, res);
