@@ -16,8 +16,8 @@ connectToDatabase()
 // console.log(process.env.REFRESH_TOKEN_SECRET);
 // console.log(process.env.ACCESS_TOKEN_EXPIRY);
 // console.log(process.env.REFRESH_TOKEN_EXPIRY);
-console.log(process.env.REDIS_URL);
-console.log(process.env.REDIS_SECRET);
+// console.log(process.env.REDIS_URL);
+// console.log(process.env.REDIS_SECRET);
 
 const app = express();
 const PORT = process.env.PORT || 3000;
