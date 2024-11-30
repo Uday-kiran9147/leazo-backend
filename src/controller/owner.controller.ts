@@ -506,7 +506,9 @@ export const getPortionsByBuildingId = async (req: Request, res: Response) => {
             return res.status(404).json({ message: "Portions not found" });
         }
         const apiResponse = new ApiResponse(200, "Portions retrieved successfully", { count: portions.length, portions });
-        await RedisClientManager.set(cacheKey,JSON.stringify(portions))
+        const responseData = { count: portions.length, portions };
+
+        await RedisClientManager.set(cacheKey,JSON.stringify(responseData))
         return res.status(apiResponse.status).json(apiResponse);
     } catch (error) {
         let apiResponse: ApiResponse = handleError(error, req, res);
