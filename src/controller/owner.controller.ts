@@ -229,6 +229,7 @@ export const getOwnerById = async (req: Request, res: Response) => {
             return res.status(404).json({ message: "Owner not found" });
         }
         const apiResponse = new ApiResponse(200, "Owner Retrieved Successfully", owner);
+        await RedisClientManager.set(cacheKey,JSON.stringify(owner))
         return res.status(apiResponse.status).json(apiResponse);
     } catch (error) {
         let apiResponse: ApiResponse = handleError(error, req, res);
