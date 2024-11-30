@@ -218,7 +218,7 @@ export const getOwnerById = async (req: Request, res: Response) => {
         const ownerId = req.body.user.ownerId;
         var cacheKey = `owner:${ownerId}`
         const cachedOwner = await RedisClientManager.get(cacheKey)
-        if(cacheKey){
+        if(cachedOwner){
             console.log("Get Owner cache hit");
             const cachedResponse = new ApiResponse(200,"Owner Retrived Successfully",JSON.parse(cachedOwner))
             return res.status(cachedResponse.status).json(cachedResponse)
