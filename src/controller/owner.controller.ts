@@ -447,7 +447,9 @@ export const updatePortion = async (req: Request, res: Response) => {
             return res.status(404).json({ message: "Portion not found" });
         }
         const cacheKey = `portions:all`;
+        const cacheKeybuilding = `building-portions:${portion.buildingId}`
         await RedisClientManager.delete(cacheKey);
+        await RedisClientManager.delete(cacheKeybuilding);
         const apiResponse = new ApiResponse(200, "Portion updated successfully", portion);
         return res.status(apiResponse.status).json(apiResponse);
     } catch (error) {
