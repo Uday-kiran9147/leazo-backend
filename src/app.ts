@@ -7,6 +7,7 @@ import { Request, Response } from 'express';
 import ownerRouter from './routes/ownerRoutes';
 import filerouter from './routes/file_upload';
 dotenv.config();
+// TODO: Always Match the Api response structure of db and cache
 
 // connect to database
 connectToDatabase()
@@ -29,11 +30,16 @@ app.use(express.json());
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/owners', ownerRouter)
-app.use('/api',filerouter)
+app.use('/api', filerouter)
 
 app.get("/", (req: Request, res: Response) => {
-    res.send("Welcome to LeazOOOOOOOOOO!");
+    res.json({ "Leazo": "Welcome to LeazOOOOOOOOOO!" });
 })
+
+setInterval(async () => {
+    await fetch("http://localhost:3000").then(res => res.json()).then(data => console.log(data))
+}, 10000 * 6 * 14)
+
 app.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
     // sendPushNotification("","","")
