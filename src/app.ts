@@ -37,7 +37,7 @@ app.get("/", (req: Request, res: Response) => {
 })
 
 setInterval(async () => {
-    await fetch("http://localhost:3000").then(res => res.json()).then(data => console.log(data))
+    console.log("Hello")
 }, 10000 * 6 * 14)
 
 app.listen(PORT, () => {
