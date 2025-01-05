@@ -68,6 +68,7 @@ export const createOwner = async (req: Request, res: Response) => {
             user.ownerId = owner._id;
             await user.save();
         }
+        RedisClientManager.delete("users:all")
         const apiResponse = new ApiResponse(201, "Owner created successfully", owner);
         return res.status(apiResponse.status).json(apiResponse);
     } catch (error) {
