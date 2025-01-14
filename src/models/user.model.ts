@@ -26,6 +26,7 @@ interface IUser extends Document, IUserMethods {
   phoneNumber: string;
   properties: string[];
   deviceToken?: string;
+  role?: string;
   isOwner: boolean;
 }
 
@@ -58,6 +59,7 @@ const userSchema = new Schema<IUser>({
   properties: [{ type: String }],
   deviceToken: { type: String },
   isOwner: { type: Boolean, default: false },
+  role: { type: String, default: "user" },
 }, {
   timestamps: true
 });

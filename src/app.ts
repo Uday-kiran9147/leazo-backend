@@ -6,6 +6,7 @@ import { connectToDatabase } from './config/db';
 import { Request, Response } from 'express';
 import ownerRouter from './routes/ownerRoutes';
 import filerouter from './routes/file_upload';
+import { adminRouter } from './routes/adminRoutes';
 dotenv.config();
 // TODO: Always Match the Api response structure of db and cache
 
@@ -31,6 +32,12 @@ app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/owners', ownerRouter)
 app.use('/api', filerouter)
+
+app.use('/v1/api/auth', authRoutes);
+app.use('/v1/api/users', userRoutes);
+app.use('/v1/api/owners', ownerRouter)
+app.use('/v1/api', filerouter)
+app.use('/v1/api/admin',adminRouter)
 
 app.get("/", (req: Request, res: Response) => {
     res.json({ "Leazo": "Welcome to LeazOOOOOOOOOO!" });

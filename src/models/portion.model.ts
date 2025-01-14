@@ -4,7 +4,7 @@ import { addressSchema, contactSchema } from "./building.model";
 // Accessable on the instances.
 interface IPortionMethods {}
 
-
+enum ApprovalStatus {"Pending", "Hold", "Approved", "Rejected",}
 
 // Define the Portion document interface (combines fields with methods)
 interface IPortion extends mongoose.Document, IPortionMethods {
@@ -21,6 +21,7 @@ interface IPortion extends mongoose.Document, IPortionMethods {
     images: string[];
     isActive: boolean;
     availabilityStatus: string;
+    approvalStatus: String;
     amenities: string[];
 }
 
@@ -43,6 +44,7 @@ const portionSchema = new mongoose.Schema<IPortion>({
     images: [{ type: String }],
     isActive: { type: Boolean, default: true },
     availabilityStatus: { type: String, required: true,enum: ['available', 'not available'] },
+    approvalStatus: { type: String, required: true,enum: ["Pending", "Hold", "Approved", "Rejected"] },
     amenities: [{ type: String }],
 },{ timestamps: true });
 
