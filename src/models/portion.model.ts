@@ -44,7 +44,7 @@ const portionSchema = new mongoose.Schema<IPortion>({
     images: [{ type: String }],
     isActive: { type: Boolean, default: true },
     availabilityStatus: { type: String, required: true,enum: ['available', 'not available'] },
-    approvalStatus: { type: String,default:"Pending",enum: ["Pending", "Hold", "Approved", "Rejected"] },
+    approvalStatus: { type: String,enum: ["Pending", "Hold", "Approved", "Rejected"] },
     amenities: [{ type: String }],
 },{ timestamps: true });
 
