@@ -36,9 +36,6 @@ app.get("/", (req: Request, res: Response) => {
     res.json({ "Leazo": "Welcome to LeazOOOOOOOOOO!" });
 })
 
-setInterval(async () => {
-    console.log("Hello")
-}, 10000 * 6 * 14)
 
 app.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
