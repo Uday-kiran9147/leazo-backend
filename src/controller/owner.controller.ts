@@ -68,7 +68,7 @@ export const createOwner = async (req: Request, res: Response) => {
             user.ownerId = owner._id;
             await user.save();
         }
-        RedisClientManager.delete(`user:${req.body.user._id}`)
+        // await RedisClientManager.delete(`user:${req.body.user._id}`)
         const apiResponse = new ApiResponse(201, "Owner created successfully", owner);
         return res.status(apiResponse.status).json(apiResponse);
     } catch (error) {
@@ -156,7 +156,7 @@ export const deleteOwner = async (req: Request, res: Response) => {
         if (!user) {
             return res.status(404).json({ message: "User not found" });
         }
-        await RedisClientManager.delete("owners:all")
+        // await RedisClientManager.delete("owners:all")
         const apiResponse = new ApiResponse(200, "Owner deleted successfully", user);
         return res.status(apiResponse.status).json(apiResponse);
     } catch (error) {
@@ -182,16 +182,16 @@ export const deleteOwner = async (req: Request, res: Response) => {
 export const getOwners = async (req: Request, res: Response) => {
     try {
         var cachekey = 'owners:all';
-        var cachedOwners = await RedisClientManager.get(cachekey)
-        if(cachedOwners){
-            console.log("Serving all owners from cache");
-            const apiResponse = new ApiResponse(200, "success", JSON.parse(cachedOwners));
-            console.log("Cache Hit");
-            return res.status(200).json(apiResponse)
-        }
+        // var cachedOwners = // await RedisClientManager.get(cachekey)
+        // if(cachedOwners){
+        //     console.log("Serving all owners from cache");
+        //     const apiResponse = new ApiResponse(200, "success", JSON.parse(cachedOwners));
+        //     console.log("Cache Hit");
+        //     return res.status(200).json(apiResponse)
+        // }
         const owners = await Owner.find();
         const apiResponse = new ApiResponse(200, "Owners retrieved successfully", { count: owners.length, owners });
-        await RedisClientManager.set(cachekey,JSON.stringify(apiResponse))
+        // await RedisClientManager.set(cachekey,JSON.stringify(apiResponse))
         return res.status(apiResponse.status).json(apiResponse);
     } catch (error) {
         let apiResponse: ApiResponse = handleError(error, req, res);
@@ -218,19 +218,19 @@ export const getOwnerById = async (req: Request, res: Response) => {
     try {
         const ownerId = req.body.user.ownerId;
         var cacheKey = `owner:${ownerId}`
-        const cachedOwner = await RedisClientManager.get(cacheKey)
-        if(cachedOwner){
-            console.log("Get Owner cache hit");
-            const cachedResponse = new ApiResponse(200,"Owner Retrived Successfully",JSON.parse(cachedOwner))
-            return res.status(cachedResponse.status).json(cachedResponse)
+        // const cachedOwner = // await RedisClientManager.get(cacheKey)
+        // if(cachedOwner){
+        //     console.log("Get Owner cache hit");
+        //     const cachedResponse = new ApiResponse(200,"Owner Retrived Successfully",JSON.parse(cachedOwner))
+        //     return res.status(cachedResponse.status).json(cachedResponse)
             
-        }
+        // }
         const owner = await Owner.findOne({ _id: ownerId });
         if (!owner) {
             return res.status(404).json({ message: "Owner not found" });
         }
         const apiResponse = new ApiResponse(200, "Owner Retrieved Successfully", owner);
-        await RedisClientManager.set(cacheKey,JSON.stringify(owner))
+        // await RedisClientManager.set(cacheKey,JSON.stringify(owner))
         return res.status(apiResponse.status).json(apiResponse);
     } catch (error) {
         let apiResponse: ApiResponse = handleError(error, req, res);
@@ -395,7 +395,7 @@ export const createPortion = async (req: Request, res: Response) => {
         const apiResponse = new ApiResponse(201, "Portion created successfully", portion);
 
         // Delete from cache
-        await RedisClientManager.delete(cacheKey);
+        // await RedisClientManager.delete(cacheKey);
         return res.status(apiResponse.status).json(apiResponse);
     } catch (error) {
         let apiResponse: ApiResponse = handleError(error, req, res);
@@ -449,8 +449,8 @@ export const updatePortion = async (req: Request, res: Response) => {
         }
         const cacheKey = `portions:all`;
         const cacheKeybuilding = `building-portions:${portion.buildingId}`
-        await RedisClientManager.delete(cacheKey);
-        await RedisClientManager.delete(cacheKeybuilding);
+        // await RedisClientManager.delete(cacheKey);
+        // await RedisClientManager.delete(cacheKeybuilding);
         const apiResponse = new ApiResponse(200, "Portion updated successfully", portion);
         return res.status(apiResponse.status).json(apiResponse);
     } catch (error) {
@@ -479,7 +479,7 @@ export const deletePortion = async (req: Request, res: Response) => {
          * @property {any} data - The deleted portion data.
          */
         const cacheKey = `portions:all`;
-        await RedisClientManager.delete(cacheKey);
+        // await RedisClientManager.delete(cacheKey);
         const apiResponse = new ApiResponse(204, "Portion deleted successfully", portion);
         return res.status(apiResponse.status).json(apiResponse);
     } catch (error) {
@@ -497,11 +497,11 @@ export const getPortionsByBuildingId = async (req: Request, res: Response) => {
          * @returns A promise that resolves to an array of portions associated with the specified building.
          */
         const cacheKey = `building-portions:${buildingId}`
-        const cachedResponse = await RedisClientManager.get(cacheKey)
-        if(cachedResponse){
-            const apiResponseCache = new ApiResponse(200,"Portions retrieved successfully",JSON.parse(cachedResponse))
-            return res.status(apiResponseCache.status).json(apiResponseCache)
-        }
+        // const cachedResponse = // await RedisClientManager.get(cacheKey)
+        // if(cachedResponse){
+        //     const apiResponseCache = new ApiResponse(200,"Portions retrieved successfully",JSON.parse(cachedResponse))
+        //     return res.status(apiResponseCache.status).json(apiResponseCache)
+        // }
         const portions = await Portion.find({ buildingId: buildingId });
         if (!portions) {
             return res.status(404).json({ message: "Portions not found" });
@@ -509,7 +509,7 @@ export const getPortionsByBuildingId = async (req: Request, res: Response) => {
         const apiResponse = new ApiResponse(200, "Portions retrieved successfully", { count: portions.length, portions });
         const responseData = { count: portions.length, portions };
 
-        await RedisClientManager.set(cacheKey,JSON.stringify(responseData))
+        // await RedisClientManager.set(cacheKey,JSON.stringify(responseData))
         return res.status(apiResponse.status).json(apiResponse);
     } catch (error) {
         let apiResponse: ApiResponse = handleError(error, req, res);

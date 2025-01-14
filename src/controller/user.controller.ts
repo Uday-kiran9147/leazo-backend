@@ -35,8 +35,8 @@ export const deleteUser = async (req: Request, res: Response) => {
        */
 
       // Clear the user cache after deleting a user
-      await RedisClientManager.delete(`user:${user._id}`);
-      await RedisClientManager.delete("users:all");
+      // await RedisClientManager.delete(`user:${user._id}`);
+      // await RedisClientManager.delete("users:all");
 
       const apiResponse: ApiResponse = new ApiResponse(204, "User deleted successfully", null);
       return res.status(apiResponse.status).json(apiResponse);
@@ -60,21 +60,21 @@ export const deleteUser = async (req: Request, res: Response) => {
 export const getAllPortions = async (req: Request, res: Response) => {
   try {
     const cacheKey = "portions:all";
-    const cachedPortions = await RedisClientManager.get(cacheKey);
+    // const cachedPortions = // await RedisClientManager.get(cacheKey);
 
-    if (cachedPortions) {
-      console.log("Serving portions from cache");
-      const apiResponse = new ApiResponse(200, "success", JSON.parse(cachedPortions));
-      console.log("Cache Hit");
+    // if (cachedPortions) {
+    //   console.log("Serving portions from cache");
+    //   const apiResponse = new ApiResponse(200, "success", JSON.parse(cachedPortions));
+    //   console.log("Cache Hit");
       
-      return res.status(apiResponse.status).json(apiResponse);
-    }
+    //   return res.status(apiResponse.status).json(apiResponse);
+    // }
 
     const portions = await Portion.find();
     const responseData = { count: portions.length, portions };
 
     // Cache result with expiration time
-    await RedisClientManager.set(cacheKey, JSON.stringify(responseData),);
+    // await RedisClientManager.set(cacheKey, JSON.stringify(responseData),);
 
     const apiResponse = new ApiResponse(200, "success", responseData);
     return res.status(apiResponse.status).json(apiResponse);
@@ -96,21 +96,21 @@ export const getAllUsers = async (req: Request, res: Response) => {
   try {
     // Check Redis cache
     const cacheKey = "users:all";
-    const cachedUsers = await RedisClientManager.get(cacheKey);
+    // const cachedUsers = // await RedisClientManager.get(cacheKey);
 
-    if (cachedUsers) {
-      console.log("Serving from cache");
-      const apiResponse = new ApiResponse(200, "success", JSON.parse(cachedUsers));
-      console.log("Cache Hit");
-      return res.status(apiResponse.status).json(apiResponse);
-    }
+    // if (cachedUsers) {
+    //   console.log("Serving from cache");
+    //   const apiResponse = new ApiResponse(200, "success", JSON.parse(cachedUsers));
+    //   console.log("Cache Hit");
+    //   return res.status(apiResponse.status).json(apiResponse);
+    // }
 
     // Fetch from database if not in cache
     const users = await User.find();
     const responseData = { count: users.length, users };
 
     // Cache result with expiration time
-    await RedisClientManager.set(cacheKey, JSON.stringify(responseData), /* 300 */); // cache for 5 minutes
+    // await RedisClientManager.set(cacheKey, JSON.stringify(responseData), /* 300 */); // cache for 5 minutes
 
     const apiResponse = new ApiResponse(200, "success", responseData);
     return res.status(apiResponse.status).json(apiResponse);
@@ -129,7 +129,7 @@ export const createUser = async (req: Request, res: Response) => {
     res.status(response.status).json(response);
 
     // Clear the users list cache after creating a new user
-    await RedisClientManager.delete("users:all");
+    // await RedisClientManager.delete("users:all");
 
     setTimeout(async () => {
       try {
@@ -177,16 +177,16 @@ export const getUser = async (req: Request, res: Response) => {
 
     if (user) {
       const cacheKey = `user:${user._id}`;
-      const cachedUser = await RedisClientManager.get(cacheKey);
+      // const cachedUser = // await RedisClientManager.get(cacheKey);
 
-      if (cachedUser) {
-        console.log("Serving user from cache");
-        const apiResponse = new ApiResponse(200, "User fetched successfully", JSON.parse(cachedUser));
-        return res.status(apiResponse.status).json(apiResponse);
-      }
+      // if (cachedUser) {
+      //   console.log("Serving user from cache");
+      //   const apiResponse = new ApiResponse(200, "User fetched successfully", JSON.parse(cachedUser));
+      //   return res.status(apiResponse.status).json(apiResponse);
+      // }
 
       // Cache miss: store fetched user data in Redis
-      await RedisClientManager.set(cacheKey, JSON.stringify(user),); // cache for 5 minutes
+      // await RedisClientManager.set(cacheKey, JSON.stringify(user),); // cache for 5 minutes
 
       const apiResponse = new ApiResponse(200, "User fetched successfully", user);
       return res.status(apiResponse.status).json(apiResponse);
@@ -252,8 +252,8 @@ export const updateUser = async (req: Request, res: Response) => {
     }
 
     // Clear the user cache after updating a user
-    await RedisClientManager.delete(`user:${user._id}`);
-    await RedisClientManager.delete("users:all");
+    // await RedisClientManager.delete(`user:${user._id}`);
+    // await RedisClientManager.delete("users:all");
 
     setTimeout(async () => {
       try {
