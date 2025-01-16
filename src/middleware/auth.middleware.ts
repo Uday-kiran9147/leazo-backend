@@ -23,6 +23,7 @@ import { User } from "../models/user.model";
 export const auth = async (req: Request, res: Response, next: NextFunction) => {
     try {
         const token = req.headers.authorization;
+        console.log(req.originalUrl);
 
         if (!token) {
             // code checked

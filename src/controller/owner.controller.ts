@@ -29,6 +29,7 @@ import { Portion } from '../models/portion.model';
  */
 import { handleError } from '../utils/api_error';
 import { RedisClientManager } from '../cache/RedisClientManager';
+import { getStatusEmoji, getStatusMessage } from './admin.Controller';
 
 /**
  * Creates a new owner and associates it with a user.
@@ -364,6 +365,8 @@ export const getOwnerBuildings = async (req: Request, res: Response) => {
         const apiResponse = new ApiResponse(200, "Buildings retrieved successfully", { count: buildings.length, buildings });
         return res.status(apiResponse.status).json(apiResponse);
     } catch (error) {
+        console.log(error);
+        
         let apiResponse: ApiResponse = handleError(error, req, res);
         return res.status(apiResponse.status).json(apiResponse);
     }
@@ -393,7 +396,11 @@ export const createPortion = async (req: Request, res: Response) => {
         const portion = new Portion(req.body);
         await portion.save();
         const apiResponse = new ApiResponse(201, "Portion created successfully", portion);
-
+        var emoji = getStatusEmoji(portion.approvalStatus);
+        var message = "Your portion " + portion.title + " has been " + getStatusMessage(portion.approvalStatus);
+        console.log(portion.approvalStatus+emoji)
+        console.log(message);
+        
         // Delete from cache
         // await RedisClientManager.delete(cacheKey);
         return res.status(apiResponse.status).json(apiResponse);
