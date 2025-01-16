@@ -91,8 +91,8 @@ export const UpdatePortionStatus = async (req: Request, res: Response) => {
         var message = `Your portion, "${updatedPortion.title}", has been ${getStatusMessage(status)}.`;
 
         var emoji = getStatusEmoji(status);
-        if (user /* && user.deviceToken */) {
-            // await sendPushNotification(user.deviceToken,`${status}${emoji}`, message);
+        if (user && user.deviceToken) {
+            await sendPushNotification(user.deviceToken,`${status}${emoji}`, message);
             console.log(status + emoji);
             console.log(message);
         }
