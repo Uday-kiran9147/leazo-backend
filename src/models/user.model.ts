@@ -59,7 +59,7 @@ const userSchema = new Schema<IUser>({
   properties: [{ type: String }],
   deviceToken: { type: String },
   isOwner: { type: Boolean, default: false },
-  role: { type: String, default: "user" },
+  role: { type: String, default: "User" },
 }, {
   timestamps: true
 });
