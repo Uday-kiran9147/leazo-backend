@@ -404,8 +404,10 @@ export const createPortion = async (req: Request, res: Response) => {
         }
         console.log(portion.approvalStatus+emoji)
         console.log(message);
-        // Delete from cache
+        // Delete from cache: portions:all & building-portions:${portion.buildingId}
         await RedisClientManager.delete(cacheKey);
+        await RedisClientManager.delete(`building-portions:${portion.buildingId}`);
+
         return res.status(apiResponse.status).json(apiResponse);
     } catch (error) {
         let apiResponse: ApiResponse = handleError(error, req, res);
@@ -489,7 +491,9 @@ export const deletePortion = async (req: Request, res: Response) => {
          * @property {any} data - The deleted portion data.
          */
         const cacheKey = `portions:all`;
+        // Delete from cache: portions:all & building-portions:${portion.buildingId}
         await RedisClientManager.delete(cacheKey);
+        await RedisClientManager.delete(`building-portions:${portion.buildingId}`);
         const apiResponse = new ApiResponse(204, "Portion deleted successfully", portion);
         return res.status(apiResponse.status).json(apiResponse);
     } catch (error) {
