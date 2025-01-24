@@ -13,6 +13,10 @@ async function clearPortionsCache() {
     console.log("Portions cache cleared.");
     await RedisClientManager.delete("portions:all");
 }
+async function clearUsersCache() {
+    console.log("Users cache cleared.");
+    await RedisClientManager.delete("users:all");
+}
 export const UpdateRole = async (req: Request, res: Response) => {
     console.log(req.originalUrl);
 
@@ -36,6 +40,7 @@ export const UpdateRole = async (req: Request, res: Response) => {
             apiResponse = new ApiResponse(404, "User not found.");
             return res.status(apiResponse.status).json(apiResponse);
         }
+        await clearUsersCache();
         apiResponse = new ApiResponse(200, `Role updated to ${role}`, updatedUser);
         return res.status(apiResponse.status).json(apiResponse);
     } catch (error) {
