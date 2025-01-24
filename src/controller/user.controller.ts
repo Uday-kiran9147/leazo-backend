@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import { User } from '../models/user.model';
 import ApiResponse from '../utils/api_response';
-import { Portion } from '../models/portion.model';
+import { ApprovalStatus, Portion } from '../models/portion.model';
 import { sendPushNotification } from '../utils/push_notifications';
 import { handleError } from '../utils/api_error';
 import { RedisClientManager } from '../cache/RedisClientManager';
@@ -69,8 +69,7 @@ export const getAllPortions = async (req: Request, res: Response) => {
       
       return res.status(apiResponse.status).json(apiResponse);
     }
-
-    const portions = await Portion.find();
+    const portions = await Portion.find({approvalStatus:ApprovalStatus.Approved});
     const responseData = { count: portions.length, portions };
 
     // Cache result with expiration time
