@@ -7,7 +7,12 @@ import { handleError } from "../utils/api_error";
 import ApiResponse from "../utils/api_response";
 import { sendPushNotification } from "../utils/push_notifications";
 import { Owner } from "../models/owner.model";
+import { RedisClientManager } from "../cache/RedisClientManager";
 
+async function clearPortionsCache() {
+    console.log("Portions cache cleared.");
+    await RedisClientManager.delete("portions:all");
+}
 export const UpdateRole = async (req: Request, res: Response) => {
     console.log(req.originalUrl);
 
@@ -96,6 +101,7 @@ export const UpdatePortionStatus = async (req: Request, res: Response) => {
             console.log(status + emoji);
             console.log(message);
         }
+        await clearPortionsCache();
         return res.status(apiResponse.status).json(apiResponse);
     } catch (error) {
         console.error("Error updating portion status:", error);
