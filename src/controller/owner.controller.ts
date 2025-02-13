@@ -99,11 +99,18 @@ export const createOwner = async (req: Request, res: Response) => {
 export const updateOwner = async (req: Request, res: Response) => {
     console.log(req.originalUrl);
     const { ownerName, contactNumber } = req.body;
+    if(contactNumber.phoneNumber.length != 10){
+        return res.status(400).json({message: "Invalid contact number"})
+    }
     try {
+        var validatedContact = contactSchema.parse(contactNumber);
         const ownerId = req.body.user.ownerId;
         const owner = await Owner.findOneAndUpdate(
             { _id: ownerId },
-            { $set: req.body },
+            { $set: {
+                ownerName: ownerName,
+                contactNumber: validatedContact
+            } },
             { runValidators: true, new: true }
         );
         if (!owner) {
