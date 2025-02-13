@@ -31,7 +31,7 @@ import { handleError } from '../utils/api_error';
 import { RedisClientManager } from '../cache/RedisClientManager';
 import { getStatusEmoji, getStatusMessage } from './admin.Controller';
 import { sendPushNotification } from '../utils/push_notifications';
-
+import { addressSchema, contactSchema } from '../utils/validators';
 /**
  * Creates a new owner and associates it with a user.
  *
@@ -109,6 +109,8 @@ export const updateOwner = async (req: Request, res: Response) => {
         if (!owner) {
             return res.status(404).json({ message: "Owner not found" });
         }
+        await RedisClientManager.delete(`owner:${ownerId}`)
+        await RedisClientManager.delete(`owners:all`)
         const apiResponse = new ApiResponse(200, "Owner updated successfully", owner);
         return res.status(apiResponse.status).json(apiResponse);
     } catch (error) {
@@ -264,7 +266,21 @@ export const createBuilding = async (req: Request, res: Response) => {
         if (!owner) {
             return res.status(404).json({ message: "Owner not found" });
         }
-        const building = new Building(req.body);
+            
+        // ✅ Validate request body using Zod
+        const validatedAddress = addressSchema.parse(req.body.address);
+        const validatedContact = contactSchema.parse(req.body.contact);
+        const building = new Building({
+            ownerId: ownerId,
+            address: validatedAddress,
+            buildingName: req.body.buildingName,
+            contact: validatedContact,
+            imageUrl: req.body.imageUrl,
+            availabilityStatus: req.body.availabilityStatus,
+            floors: req.body.floors,
+            parking: req.body.parking,
+            amenities: req.body.amenities
+        });
         await building.save();
         const apiResponse = new ApiResponse(201, "Building created successfully", building);
         return res.status(apiResponse.status).json(apiResponse);
@@ -293,7 +309,11 @@ export const createBuilding = async (req: Request, res: Response) => {
  */
 export const updateBuilding = async (req: Request, res: Response) => {
     console.log(req.originalUrl);
-    const buildingId = req.query.buildingId;
+    const { buildingId }= req.query;
+
+    if (!buildingId) {
+        return res.status(400).json({ message: 'Building ID is required' });
+    }
     const notAllowedUpdates = ['ownerId'];
     const updates = Object.keys(req.body.data);
     /**
