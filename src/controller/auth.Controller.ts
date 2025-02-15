@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import { User } from "../models/user.model";
-import { createUser, updateUser } from "./user.controller";
+import { createUser } from "./user.controller";
 import ApiError, { handleError } from "../utils/api_error";
 import ApiResponse from "../utils/api_response";
 
@@ -50,17 +50,6 @@ export const login = async (req: Request, res: Response) => {
         const apiResponse = new ApiResponse(200, "Login successful", { user, token });
         return res.status(200).json(apiResponse);
     } catch (error: any) {
-        // console.error('Error in login:', error.message); 
-        
-        // If the error is an instance of ApiError, format it using ApiResponse
-        // if (error instanceof ApiError) {
-        //     console.log('Error is an instance of ApiError');
-        //     console.log(error);
-            
-        //     const apiResponse = new ApiResponse(error.statusCode, error.message);
-        //     return res.status(error.statusCode).json(apiResponse);
-        // }
-
         // For generic errors, return a 500 Internal Server Error
         const apiResponse = handleError(error,req,res);
         return res.status(apiResponse.status).json(apiResponse);

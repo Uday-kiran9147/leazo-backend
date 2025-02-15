@@ -1,32 +1,9 @@
 import { Request, Response } from 'express';
-/**
- * Importing the Owner model from the models directory.
- */
 import { Owner } from "../models/owner.model";
-
-/**
- * Importing the ApiResponse utility for standardized API responses.
- */
 import ApiResponse from "../utils/api_response";
-
-/**
- * Importing the User model from the models directory.
- */
 import { User } from '../models/user.model';
-
-/**
- * Importing the Building model from the models directory.
- */
 import { Building } from '../models/building.model';
-
-/**
- * Importing the Portion model from the models directory.
- */
 import { Portion } from '../models/portion.model';
-
-/**
- * Importing the handleError utility for standardized error handling.
- */
 import { handleError } from '../utils/api_error';
 import { RedisClientManager } from '../cache/RedisClientManager';
 import { getStatusEmoji, getStatusMessage } from './admin.Controller';
