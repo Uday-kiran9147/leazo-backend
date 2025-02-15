@@ -8,6 +8,7 @@ import { Request, Response } from 'express';
 import ownerRouter from './routes/ownerRoutes';
 import filerouter from './routes/file_upload';
 import { adminRouter } from './routes/adminRoutes';
+import { underMaintenance } from './middleware/under_maintenance';
 dotenv.config();
 // TODO: Always Match the Api response structure of db and cache
 
