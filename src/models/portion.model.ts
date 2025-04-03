@@ -34,23 +34,34 @@ interface IPortionModel extends mongoose.Model<IPortion>{}
 
 
 // Portion Schema
-const portionSchema = new mongoose.Schema<IPortion>({
-    // _id:{type:mongoose.Schema.Types.ObjectId},
-    buildingId: { type: mongoose.Schema.Types.ObjectId, ref: 'Building', required: true },
-    ownerId: { type: mongoose.Schema.Types.ObjectId, ref: 'Owner', required: true },
-    portionNumber: { type: String, required: true },
-    floor: { type: String, required: true },
-    contact: { type: contactSchema, required: true },
-    address: { type: addressSchema, required: true },
-    title: { type: String, required: true },
-    description: { type: String, required: true },
-    price: { type: Number, required: true },
-    images: [{ type: String }],
-    isActive: { type: Boolean, default: true },
-    availabilityStatus: { type: String, required: true,enum: ['available', 'not available'] },
-    approvalStatus: { type: String,default:ApprovalStatus.Review,enum: ["Review", "Hold", "Approved", "Rejected"] },
-
-    amenities: [{ type: String }],
-},{ timestamps: true });
+const portionSchema = new mongoose.Schema<IPortion>(
+    {
+      buildingId: { type: mongoose.Schema.Types.ObjectId, ref: "Building", required: true, index: true },
+      ownerId: { type: mongoose.Schema.Types.ObjectId, ref: "Owner", required: true, index: true },
+      portionNumber: { type: String, required: true },
+      floor: { type: String, required: true },
+      contact: { type: contactSchema, required: true },
+      address: { type: addressSchema, required: true },
+      title: { type: String, required: true },
+      description: { type: String, required: true },
+      price: { type: Number, required: true },
+      images: [{ type: String }],
+      isActive: { type: Boolean, default: true },
+      availabilityStatus: {
+        type: String,
+        required: true,
+        enum: ["available", "not available"],
+        index: true, // ✅ Add index
+      },
+      approvalStatus: {
+        type: String,
+        default: "Review", // ✅ Ensure this matches enum values
+        enum: ["Review", "Hold", "Approved", "Rejected"],
+        index: true, // ✅ Add index
+      },
+      amenities: [{ type: String }],
+    },
+    { timestamps: true }
+  );  
 
 export const Portion = mongoose.model<IPortion,IPortionModel>('Portion', portionSchema);

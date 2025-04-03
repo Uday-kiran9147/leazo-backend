@@ -1,13 +1,134 @@
 import { Request, Response, Router } from "express";
-import { isAdminMiddleware } from "../middleware/isAdmin.middleware";
 import { Portion } from "../models/portion.model";
-import { adminRouter } from "../routes/adminRoutes";
 import { User } from "../models/user.model";
 import { handleError } from "../utils/api_error";
 import ApiResponse from "../utils/api_response";
 import { sendPushNotification } from "../utils/push_notifications";
 import { Owner } from "../models/owner.model";
 import { RedisClientManager } from "../cache/RedisClientManager";
+import { Building } from "../models/building.model";
+
+interface DashboardStats {
+    totalListings: number;
+    activeListings: number;
+    pendingInquiries: number;
+    holdInquiries: number;
+    occupiedPortions: number;
+    rejectedPortions: number;
+    occupancyRate?: string;
+    totalBuildings?: number;
+}
+
+export const getDashboardStats = async (_: Request, res: Response) => {
+    console.log(`[${new Date().toISOString()}] Fetching dashboard stats...`);
+    
+    try {
+        const stats: DashboardStats[] = await Portion.aggregate([
+            // Optional: Add this if you only want active listings
+            // {
+            //     $match: {
+            //         isActive: true
+            //     }
+            // },
+            {
+                $group: {
+                    _id: null, // Grouping by null to get a single result
+                    totalListings: { $sum: 1 }, // Counts all documents
+                    activeListings: { 
+                        $sum: { 
+                            $cond: [
+                                { 
+                                    $and: [
+                                        { $eq: ["$availabilityStatus", "available"] },
+                                        { $eq: ["$approvalStatus", "Approved"] }
+                                    ] 
+                                }, 
+                                1, 
+                                0
+                            ] 
+                        } 
+                    },
+                    pendingInquiries: { 
+                        $sum: { 
+                            $cond: [
+                                { $eq: ["$approvalStatus", "Review"] }, 
+                                1, 
+                                0
+                            ] 
+                        } 
+                    },
+                    holdInquiries: { 
+                        $sum: { 
+                            $cond: [
+                                { $eq: ["$approvalStatus", "Hold"] }, 
+                                1, 
+                                0
+                            ] 
+                        } 
+                    },
+                    occupiedPortions: { 
+                        $sum: { 
+                            $cond: [
+                                { 
+                                    $and: [
+                                        { $eq: ["$availabilityStatus", "not available"] },
+                                        { $eq: ["$approvalStatus", "Approved"] }
+                                    ]
+                                }, 
+                                1, 
+                                0
+                            ] 
+                        } 
+                    },
+                    rejectedPortions: { 
+                        $sum: { 
+                            $cond: [
+                                { $eq: ["$approvalStatus", "Rejected"] }, 
+                                1, 
+                                0
+                            ] 
+                        } 
+                    }
+                }
+            }
+        ]);
+
+        // Default values if no documents exist
+        const defaultStats: DashboardStats = {
+            totalListings: 0,
+            activeListings: 0,
+            pendingInquiries: 0,
+            holdInquiries: 0,
+            occupiedPortions: 0,
+            rejectedPortions: 0,
+            occupancyRate: "0%",
+            totalBuildings: 0,
+        };
+
+        const resultStats = stats.length > 0 ? stats[0] : defaultStats;
+
+        // Calculate occupancy rate (only counting approved portions)
+        const approvedPortions = resultStats.activeListings + resultStats.occupiedPortions;
+        const occupancyRate = approvedPortions > 0 
+        ? `${((resultStats.occupiedPortions / approvedPortions) * 100).toFixed(2)}%` 
+        : "0%";
+        // Fetch total buildings count
+        const totalBuildings = await Building.countDocuments({});
+        resultStats.totalBuildings = totalBuildings;
+
+        resultStats.occupancyRate = occupancyRate;
+        var apiResponse:ApiResponse = new ApiResponse(200, "Dashboard statistics fetched successfully.", resultStats);
+        
+        return res.status(200).json(apiResponse);
+
+    } catch (error) {
+        console.error(`[${new Date().toISOString()}] Error fetching dashboard stats:`, error);
+        return res.status(500).json({ 
+            message: "Failed to fetch dashboard statistics",
+            error: error instanceof Error ? error.message : 'Unknown error'
+        });
+    }
+};
 
 async function clearPortionsCache() {
     console.log("Portions cache cleared.");
@@ -49,19 +170,19 @@ export const UpdateRole = async (req: Request, res: Response) => {
     }
 
 }
-export const getPortionsByStatus = async (req:Request,res:Response)=>{
+export const getPortionsByStatus = async (req: Request, res: Response) => {
     console.log(req.originalUrl);
     try {
         const { status } = req.params;
         console.log(status);
-        
+
         const portions = await Portion.find({ approvalStatus: status });
         var apiResponse: ApiResponse;
         if (!portions) {
             apiResponse = new ApiResponse(404, "No portions found.");
             return res.status(apiResponse.status).json(apiResponse);
         }
-        apiResponse = new ApiResponse(200, "Portions found.", {count:portions.length,portions:portions});
+        apiResponse = new ApiResponse(200, "Portions found.", { count: portions.length, portions: portions });
         return res.status(apiResponse.status).json(apiResponse);
     } catch (error) {
         var apiError = handleError(error, req, res);
@@ -102,7 +223,7 @@ export const UpdatePortionStatus = async (req: Request, res: Response) => {
 
         var emoji = getStatusEmoji(status);
         if (user && user.deviceToken) {
-            await sendPushNotification(user.deviceToken,`${status}${emoji}`, message);
+            await sendPushNotification(user.deviceToken, `${status}${emoji}`, message);
             console.log(status + emoji);
             console.log(message);
         }
