@@ -28,9 +28,7 @@ const userActivitySchema = new Schema<IUserActivity>({
   },
   deviceInfo: { type: String },
   ipAddress: { type: String }
-}, {
-  timestamps: true
-});
+},);
 
 // Indexes for faster queries
 userActivitySchema.index({ userId: 1, date: 1 });
