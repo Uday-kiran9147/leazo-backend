@@ -24,7 +24,7 @@ const userActivitySchema = new Schema<IUserActivity>({
   activityType: { 
     type: String, 
     required: true,
-    enum: ['login', 'property_view', 'search', 'other'] 
+    enum: ['login', 'property_view', 'search','app_open', 'other'] 
   },
   deviceInfo: { type: String },
   ipAddress: { type: String }
