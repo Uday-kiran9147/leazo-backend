@@ -5,6 +5,8 @@ import jwt from "jsonwebtoken";
 import { log, timeStamp } from "console";
 import ApiError from "../utils/api_error";
 import { Owner } from "./owner.model";
+import { DailyActiveUser, MonthlyActiveUser, YearlyActiveUser } from "./admin/activity";
+import { UserActivity } from "./admin/userActivity";
 
 // User -> userSchema -> IUser -> IUserMethods
 
@@ -12,6 +14,7 @@ import { Owner } from "./owner.model";
 // Accessable on the instances.
 interface IUserMethods {
   generateAccessToken(): Promise<string>;
+  trackActivity(activityType: string, deviceInfo?: string, ipAddress?: string): Promise<void>;
 }
 
 // Define the User document interface (combines fields with methods)
@@ -63,7 +66,47 @@ const userSchema = new Schema<IUser>({
 }, {
   timestamps: true
 });
+userSchema.methods.trackActivity = async function(
+  activityType: string, 
+  deviceInfo?: string, 
+  ipAddress?: string
+): Promise<void> {
+  const user = this as IUser;
+  log("User activity tracked", user._id, activityType, deviceInfo, ipAddress);
+  // Record the activity
+  await UserActivity.create({
+    userId: user._id,
+    activityType,
+    deviceInfo,
+    ipAddress
+  });
+  // Update daily active users (idempotent)
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  
+  await DailyActiveUser.updateOne(
+    { userId: user._id, date: today },
+    { $setOnInsert: { userId: user._id, date: today } },
+    { upsert: true }
+  );
 
+  // Update monthly active users (idempotent)
+  const year = today.getFullYear();
+  const month = today.getMonth() + 1;
+  
+  await MonthlyActiveUser.updateOne(
+    { userId: user._id, year, month },
+    { $setOnInsert: { userId: user._id, year, month } },
+    { upsert: true }
+  );
+
+  // Update yearly active users (idempotent)
+  await YearlyActiveUser.updateOne(
+    { userId: user._id, year },
+    { $setOnInsert: { userId: user._id, year } },
+    { upsert: true }
+  );
+};
 // Define instance method for generating auth token
 userSchema.methods.generateAccessToken = async function (): Promise<string> {
   const user = this as IUser;
