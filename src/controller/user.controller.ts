@@ -124,7 +124,8 @@ export const createUser = async (req: Request, res: Response) => {
   const user = new User(req.body);
   try {
     await user.save();
-    const response = new ApiResponse(201, "Account created successfully", user);
+    const token = await user.generateAccessToken();
+    const response = new ApiResponse(201, "Account created successfully", {user, token});
     res.status(response.status).json(response);
 
     // Clear the users list cache after creating a new user
