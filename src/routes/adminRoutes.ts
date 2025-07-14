@@ -54,15 +54,15 @@ adminRouter.get('/yau', async (req, res) => {
 });
 
 // Get Retention Rate
-// adminRouter.get('/retention', async (req, res) => {
-//   console.log(req.query);
+adminRouter.get('/retention', async (req, res) => {
+  console.log(req.query);
   
-//   try {
-//     const { period } = req.query;
-//     const result = await analyticsService.getRetentionRate(period as 'day' | 'month' | 'year');
-//     var apiResponse: ApiResponse = new ApiResponse(200,"success",result)
-//     res.json(apiResponse);
-//   } catch (error) {
-//     res.status(500).json({ error });
-//   }
-// });
+  try {
+    const { period } = req.query;
+    const result = await analyticsService.getRetentionRate(period as 'day' | 'month' | 'year');
+    var apiResponse: ApiResponse = new ApiResponse(200,"success",result)
+    res.json(apiResponse);
+  } catch (error) {
+    res.status(500).json({ error });
+  }
+});

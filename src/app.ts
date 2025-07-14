@@ -9,6 +9,11 @@ import ownerRouter from './routes/ownerRoutes';
 import filerouter from './routes/file_upload';
 import { adminRouter } from './routes/adminRoutes';
 import { underMaintenance } from './middleware/under_maintenance';
+import { log } from 'console';
+
+
+
+// Load environment variables from .env file
 dotenv.config();
 // TODO: Always Match the Api response structure of db and cache
 
@@ -61,5 +66,10 @@ startCyclicFunc();
 
 app.listen(PORT, () => {
     console.log(`Server is running on port http://localhost:${PORT}`);
+    const memoryUsage = process.memoryUsage();
+    log('Memory Usage:');
+    Object.entries(memoryUsage).forEach(([key, value]) => {
+      log(`  ${key}: ${(value / 1024 / 1024).toFixed(2)} MB`);
+    });
     // sendPushNotification("","","")
 });
