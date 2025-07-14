@@ -41,6 +41,9 @@ jobs:
         run: |
           npm install
           npm start
+      # 
+      - name: List files before zipping
+        run: ls -al
 
       - name: Zip artifact for deployment
         run: zip release.zip ./* -r
