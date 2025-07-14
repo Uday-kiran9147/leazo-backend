@@ -5,6 +5,7 @@ import { ApprovalStatus, Portion } from '../models/portion.model';
 import { sendPushNotification } from '../utils/push_notifications';
 import { handleError } from '../utils/api_error';
 import { RedisClientManager } from '../cache/RedisClientManager';
+import { Notification } from '../models/notification.model';
 
 /**
  * Deletes a user based on the provided request body.
@@ -119,6 +120,32 @@ export const getAllUsers = async (req: Request, res: Response) => {
   }
 };
 
+  export const getNotifications = async (req: Request, res: Response) => {
+    const userId = req.body.user._id;
+    try {
+      const notifications = await Notification.getNotifications(
+        userId,
+      );
+      const apiResponse = new ApiResponse(200, "Notifications fetched successfully", notifications);
+      return res.status(apiResponse.status).json(apiResponse);
+    } catch (error) {
+      const apiResponse: ApiResponse = handleError(error, req, res);
+      return res.status(apiResponse.status).json(apiResponse);
+    }
+    
+  }
+
+   export const markAsRead = async (req: Request, res: Response) => {
+    const id = req.params.id;
+    try {
+      await Notification.markAsRead(id);
+      const apiResponse = new ApiResponse(200, "Notification marked as read successfully", null);
+      return res.status(apiResponse.status).json(apiResponse);
+    } catch (error) {
+      const apiResponse: ApiResponse = handleError(error, req, res);
+      return res.status(apiResponse.status).json(apiResponse);
+    }
+  }
 
 export const createUser = async (req: Request, res: Response) => {
   const user = new User(req.body);
@@ -145,10 +172,20 @@ export const createUser = async (req: Request, res: Response) => {
     return res.status(apiResponse.status).json(apiResponse);
   }
 
+
+
   async function sendNewUserNotification() {
     if (user.deviceToken) {
       try {
         await sendPushNotification(user.deviceToken, "Welcome to Leazo! 🏡", "Your account has been successfully created. Explore amazing rooms available for rent and start your journey with Leazo!");
+        // Create a notification for the user
+        const notification = Notification.createNotification(
+          user._id,
+          "Welcome to Leazo! 🏡",
+          "Your account has been successfully created. Explore amazing rooms available for rent and start your journey with Leazo!",
+          'info'
+        );
+        (await notification).save();
         console.log("Push notification sent to new user");
       } catch (error) {
         console.error("Failed to send push notification:", error);

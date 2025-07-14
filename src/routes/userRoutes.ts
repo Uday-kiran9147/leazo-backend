@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { getAllUsers, createUser, getUser, updateUser,getAllPortions,deleteUser } from '../controller/user.controller';
+import { getAllUsers, createUser, getUser, updateUser,getAllPortions,deleteUser, getNotifications, markAsRead } from '../controller/user.controller';
 import { auth } from '../middleware/auth.middleware';
 import { User } from '../models/user.model';
 
@@ -11,6 +11,8 @@ userRouter.post('/create-user', createUser); // DONE
 userRouter.patch('/update-user',auth, updateUser); // DONE
 userRouter.delete('/delete/me',auth,deleteUser); 
 userRouter.get('/get-portions',auth,getAllPortions) //DONE
+userRouter.get('/notifications/get-notifications',auth,getNotifications)
+userRouter.patch('/notifications/mark-as-read/:id',auth,markAsRead)
 
 
 // Track user activity

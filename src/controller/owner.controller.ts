@@ -9,6 +9,7 @@ import { RedisClientManager } from '../cache/RedisClientManager';
 import { getStatusEmoji, getStatusMessage } from './admin.Controller';
 import { sendPushNotification } from '../utils/push_notifications';
 import { addressSchema, contactSchema } from '../utils/validators';
+import { Notification } from '../models/notification.model';
 /**
  * Creates a new owner and associates it with a user.
  *
@@ -405,6 +406,15 @@ export const createPortion = async (req: Request, res: Response) => {
         if (user && user.deviceToken) {
             // Send push notification
             await sendPushNotification(user.deviceToken, portion.approvalStatus + emoji, message);
+            // Create notification
+            var notification = Notification.createNotification(
+                user._id,
+                portion.approvalStatus + emoji,
+                message,
+            )
+            console.log("Notification sent to user:", user.firstName);
+            (await notification).save();
+            
         }
         console.log(portion.approvalStatus+emoji)
         console.log(message);

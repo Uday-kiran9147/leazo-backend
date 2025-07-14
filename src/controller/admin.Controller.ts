@@ -7,6 +7,7 @@ import { sendPushNotification } from "../utils/push_notifications";
 import { Owner } from "../models/owner.model";
 import { RedisClientManager } from "../cache/RedisClientManager";
 import { Building } from "../models/building.model";
+import { Notification } from "../models/notification.model";
 
 interface DashboardStats {
     totalListings: number;
@@ -224,6 +225,13 @@ export const UpdatePortionStatus = async (req: Request, res: Response) => {
         var emoji = getStatusEmoji(status);
         if (user && user.deviceToken) {
             await sendPushNotification(user.deviceToken, `${status}${emoji}`, message);
+            var notification = Notification.createNotification(
+                user._id,
+                `${status}${emoji}`,
+                message,
+            )
+            console.log("Notification sent to user:", user.firstName);
+            (await notification).save();
             console.log(status + emoji);
             console.log(message);
         }
