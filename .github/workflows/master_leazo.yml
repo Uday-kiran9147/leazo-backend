@@ -22,17 +22,21 @@ jobs:
         uses: actions/setup-node@v3
         with:
           node-version: '22.x'
+      
+      # Create .env file from secrets
+      - name: Decode .env from base64
+        run: |
+          echo "$ENV_FILE_B64" | base64 --decode > .env
+        env:
+          ENV_FILE_B64: ${{ secrets.ENV_FILE_B64 }}
+      
+      # Create .service_account file from secrets
+      - name: Decode service_account.json from base64
+        run: |
+          echo "$SERVICE_ACCOUNTS_JSON" | base64 --decode > service_account.json
+        env:
+          SERVICE_ACCOUNTS_JSON: ${{ secrets.SERVICE_ACCOUNTS_JSON }}
 
-      - name: Create .env file
-        run: |
-          echo "${{ secrets.ENV_FILE }}" > .env
-
-      - name: Create service_accounts.json file
-        run: |
-          echo '${{ secrets.SERVICE_ACCOUNTS_JSON }}' > service_accounts.json
-      - name: Log created files
-        run: |
-          ls
       - name: npm install,
         run: |
           npm install
