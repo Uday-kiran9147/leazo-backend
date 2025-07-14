@@ -23,6 +23,16 @@ jobs:
         with:
           node-version: '22.x'
 
+      - name: Create .env file
+        run: |
+          echo "${{ secrets.ENV_FILE }}" > .env
+
+      - name: Create service_accounts.json file
+        run: |
+          echo '${{ secrets.SERVICE_ACCOUNTS_JSON }}' > service_accounts.json
+      - name: Log created files
+        run: |
+          ls
       - name: npm install,
         run: |
           npm install
