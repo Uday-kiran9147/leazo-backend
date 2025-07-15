@@ -1,6 +1,6 @@
 import mongoose, { Schema, Document } from 'mongoose';
 
-export interface INotification extends Document {
+interface INotification extends Document {
   userId: mongoose.Types.ObjectId;      // Receiver of the notification
   title: string;                        // Short title (e.g., "New Message")
   body: string;                         // Message body (e.g., "John commented on your post")

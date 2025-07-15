@@ -6,6 +6,7 @@ import { sendPushNotification } from '../utils/push_notifications';
 import { handleError } from '../utils/api_error';
 import { RedisClientManager } from '../cache/RedisClientManager';
 import { Notification } from '../models/notification.model';
+import { Feedback } from '../models/feedback.model';
 
 /**
  * Deletes a user based on the provided request body.
@@ -135,6 +136,33 @@ export const getAllUsers = async (req: Request, res: Response) => {
     
   }
 
+  export const submitFeedback = async (req: Request, res: Response) => {
+    const {feedback,userId} = req.body;
+
+    if (!feedback || !userId) {
+      return res.status(400).json(new ApiResponse(400, "Feedback and userId are required", null));
+    }
+    try {
+      const newFeedback = await Feedback.submitFeedback(userId, feedback);
+      const apiResponse = new ApiResponse(201, "Feedback submitted successfully", newFeedback);
+      return res.status(apiResponse.status).json(apiResponse);
+    } catch (error) {
+      const apiResponse: ApiResponse = handleError(error, req, res);
+      return res.status(apiResponse.status).json(apiResponse);
+    }
+  }
+
+  export const getFeedbacks = async (req: Request, res: Response) => {
+    try {
+      const feedbacks = await Feedback.getFeedBacks();
+      const apiResponse = new ApiResponse(200, "Feedbacks fetched successfully", feedbacks);
+      return res.status(apiResponse.status).json(apiResponse);
+    } catch (error) {
+      const apiResponse: ApiResponse = handleError(error, req, res);
+      return res.status(apiResponse.status).json(apiResponse);
+    }
+
+  }
    export const markAsRead = async (req: Request, res: Response) => {
     const id = req.params.id;
     try {
