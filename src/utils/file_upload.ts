@@ -31,17 +31,17 @@ export const uploadFile = async (req: any, res: any) => {
         const storageRef = admin.storage().bucket().file(filePath);
 
         // Upload the file to the storage reference
-        await storageRef.createWriteStream().end(file.buffer);
+        storageRef.createWriteStream().end(file.buffer);
 
         // Get the download URL of the uploaded file
         const downloadURL = await storageRef.getSignedUrl({ action: 'read', expires: '03-09-3025' });
         const fileUrl = downloadURL[0];
-        // console.log(`File uploaded successfully at ${fileUrl}`);
+        console.log(`File uploaded successfully at ${fileUrl.replace(/%2F/g, '/')}`);
         const apiResponse = new ApiResponse(200, "File uploaded successfully", { fileUrl });
         return res.status(200).json(apiResponse);
     } catch (error) {
         console.error(error);
         const apiResponse = new ApiError(400, 'Failed to upload file',);
-
+        return res.status(400).json(apiResponse);
     }
 }
