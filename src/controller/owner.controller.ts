@@ -300,6 +300,15 @@ export const updateBuilding = async (req: Request, res: Response) => {
         return res.status(400).json({ message: 'Building ID is required' });
     }
     const notAllowedUpdates = ['ownerId'];
+
+    console.log("Request body data:", req.body.data);
+    
+    // Check for missing or invalid body
+    if (!req.body || !req.body.data || typeof req.body.data !== 'object') {
+        console.log("Invalid request: 'data' object is required in body.");
+        
+      return res.status(400).json({ message: "Invalid request: 'data' object is required in body." });
+    }
     const updates = Object.keys(req.body.data);
     /**
      * Checks if any of the updates are invalid operations.
