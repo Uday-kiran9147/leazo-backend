@@ -64,4 +64,14 @@ const portionSchema = new mongoose.Schema<IPortion>(
     { timestamps: true }
   );  
 
+  // In Portion schema definition
+  portionSchema.index({
+    "address.state": "text",
+    "address.country": "text",
+    "address.city": "text",
+    "address.locality": "text",
+    title: "text",
+    description: "text"
+  });
+
 export const Portion = mongoose.model<IPortion,IPortionModel>('Portion', portionSchema);

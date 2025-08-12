@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { getAllUsers, createUser, getUser, updateUser,getAllPortions,deleteUser, getNotifications, markAsRead ,submitFeedback, getFeedbacks} from '../controller/user.controller';
+import { getAllUsers, createUser, getUser, updateUser,getAllPortions,deleteUser, getNotifications, markAsRead ,submitFeedback, getFeedbacks, searchPortions} from '../controller/user.controller';
 import { auth } from '../middleware/auth.middleware';
 import { User } from '../models/user.model';
 
@@ -15,6 +15,7 @@ userRouter.get('/notifications/get-notifications',auth,getNotifications) //DONE
 userRouter.patch('/notifications/mark-as-read/:id',auth,markAsRead) //DONE
 userRouter.post('/submit-feedback',submitFeedback) // DONE
 userRouter.get('/feedbacks',getFeedbacks)
+userRouter.get('/search',searchPortions)
 
 // Track user activity
 userRouter.post('/activity', async (req:Request, res:Response) => {

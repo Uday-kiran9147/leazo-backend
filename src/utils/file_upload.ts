@@ -2,6 +2,7 @@ import admin from 'firebase-admin';
 import multer from 'multer';
 import ApiResponse from './api_response';
 import ApiError from './api_error';
+import { Request,Response } from 'express';
 
 // Set up Multer for handling file uploads
 const storage = multer.memoryStorage();
@@ -9,10 +10,13 @@ const storage = multer.memoryStorage();
 
 export const upload = multer({ storage: storage }).single('fileName');
 
-export const uploadFile = async (req: any, res: any) => {
+export const uploadFile = async (req: Request, res: Response) => {
+    console.log(req.originalUrl);
+    
     const file = req.file;
 
     if (!file) {
+        console.error('No file uploaded');
         return res.status(400).json({ message: 'File is not specified' });
     }
 
@@ -22,6 +26,7 @@ export const uploadFile = async (req: any, res: any) => {
 
         if (!allowedFolders.includes(folder)) {
             const apiResponse = new ApiError(400, `Invalid folder value. Allowed values are "Buildings, Portions"`);
+            console.error(apiResponse);
             return res.status(400).json(apiResponse);
         }
         const filename = `${Date.now()}-${Math.random().toString(36).substring(7)}-Leaz-storage-${file.originalname}`;
@@ -36,12 +41,14 @@ export const uploadFile = async (req: any, res: any) => {
         // Get the download URL of the uploaded file
         const downloadURL = await storageRef.getSignedUrl({ action: 'read', expires: '03-09-3025' });
         const fileUrl = downloadURL[0];
-        console.log(`File uploaded successfully at ${fileUrl.replace(/%2F/g, '/')}`);
+        console.log(`File uploaded successfully`);
         const apiResponse = new ApiResponse(200, "File uploaded successfully", { fileUrl });
         return res.status(200).json(apiResponse);
     } catch (error) {
         console.error(error);
         const apiResponse = new ApiError(400, 'Failed to upload file',);
+        console.log(apiResponse);
+        
         return res.status(400).json(apiResponse);
     }
 }

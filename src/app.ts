@@ -19,7 +19,7 @@ dotenv.config();
 
 // connect to database
 connectToDatabase()
-startCyclicFunc()
+// startCyclicFunc()
 // console.log(process.env.DB_URL);
 // console.log(process.env.JWT_SECRET);
 // console.log(process.env.REFRESH_TOKEN_SECRET);
@@ -51,18 +51,18 @@ app.get("/", (req: Request, res: Response) => {
 })
 
 
-async function startCyclicFunc() {
-  setInterval(async () => {
-    try {
-      await axios.get('https://leazo-server.onrender.com/').then((res)=>{
-        console.log(res.status);
-      });
-    } catch (error) {
-      console.error(`Error in cyclic function: ${error}`);
-    }
-  }, 1000 * 60 *10); // 10 minutes
-}
-startCyclicFunc();
+// async function startCyclicFunc() {
+//   setInterval(async () => {
+//     try {
+//       await axios.get('https://leazo-server.onrender.com/').then((res)=>{
+//         console.log(res.status);
+//       });
+//     } catch (error) {
+//       console.error(`Error in cyclic function: ${error}`);
+//     }
+//   }, 1000 * 60 *10); // 10 minutes
+// }
+// startCyclicFunc();
 
 app.listen(PORT, () => {
     console.log(`Server is running on port http://localhost:${PORT}`);
