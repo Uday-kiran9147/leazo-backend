@@ -8,6 +8,50 @@ import { RedisClientManager } from '../cache/RedisClientManager';
 import { Notification } from '../models/notification.model';
 import { Feedback } from '../models/feedback.model';
 
+
+
+export const searchPortions = async (req: Request, res: Response) => {
+  // /api/users/search?q=hyderabad luxary&limit=10
+  const { q, limit = 20 } = req.query;
+  console.log("Search query:", q, "Limit:", limit);
+  
+  if (!q || typeof q !== "string") {
+    return res.status(400).json(new ApiResponse(400, "Search term is required", null));
+  }
+
+  // Split into words & build AND-of-OR query
+  const terms = q.trim().split(/\s+/).map(term => new RegExp(term, "i"));
+
+  const mongoQuery = {
+    approvalStatus: ApprovalStatus.Approved,
+    $and: terms.map(regx => ({
+      $or: [
+        { "address.state": regx },
+        { "address.country": regx },
+        { "address.city": regx },
+        { "address.locality": regx },
+        { title: regx },
+        { description: regx }
+      ]
+    }))
+  };
+
+  try {
+    const portions = await Portion.find(mongoQuery)
+      .limit(parseInt(limit as string, 10))
+      .sort({ createdAt: -1 });
+
+    const responseData = { count: portions.length, portions };
+    return res.status(200).json(new ApiResponse(200, "Search results", responseData));
+
+  } catch (error) {
+    const apiResponse: ApiResponse = handleError(error, req, res);
+    return res.status(apiResponse.status).json(apiResponse);
+  }
+};
+
+
+
 /**
  * Deletes a user based on the provided request body.
  *
