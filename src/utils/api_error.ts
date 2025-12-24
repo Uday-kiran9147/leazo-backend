@@ -23,7 +23,6 @@ export const handleError = (error: any, req: any, res: any): ApiResponse => {
 
     if (error instanceof ApiError) {
         apiResponse = new ApiResponse(error.statusCode, error.message, error);
-        console.error('API Error:', error.message);
         return apiResponse;
     }
 

@@ -68,12 +68,16 @@ app.use(globalErrorHandler);
 // }
 // startCyclicFunc();
 
-app.listen(PORT, () => {
+// Export app for testing
+export default app;
+
+if (process.env.NODE_ENV !== 'test') {
+  app.listen(PORT, () => {
     console.log(`Server is running on port http://localhost:${PORT}`);
     const memoryUsage = process.memoryUsage();
     log('Memory Usage:');
     Object.entries(memoryUsage).forEach(([key, value]) => {
       log(`  ${key}: ${(value / 1024 / 1024).toFixed(2)} MB`);
     });
-    // sendPushNotification("","","")
-});
+    });
+}
