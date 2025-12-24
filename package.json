@@ -1,7 +1,7 @@
 {
   "name": "leazo-backend",
   "version": "1.0.0",
-  "main": "dist/app.js",
+  "main": "dist/src/app.js",
   "scripts": {
     "start": "node dist/src/app.js",
     "prod": "npx tsc && node dist/src/app.js",
