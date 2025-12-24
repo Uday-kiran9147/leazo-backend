@@ -103,3 +103,15 @@ Continuous Integration is configured via **GitHub Actions** (`.github/workflows/
 - **Caching**: Most `GET` requests for owners and portions are cached in Redis. Update/Delete operations automatically invalidate the relevant cache keys.
 
 ## 🔗 Documentation
+1. Plan Definitions
+We will define two sets of plans: OWNER_PLANS and TENANT_PLANS.
+
+Owner Plans
+Free: 1 active listing, 3 photos, Basic visibility, Limited chat.
+Starter (₹99/mo): 3 active listings, 8 photos/listing, 1 weekly boost, Verified badge, 10 tenant contacts.
+Pro (₹199/mo): Unlimited listings, 15 photos/listing, Daily boost, Unlimited tenant contacts, Auto-renew, Verified badge.
+Ultra (₹299/mo): Pro + Top city placement, Performance insights, AI rent suggestion, Priority support.
+Tenant Plans
+Free: Unlimited browsing, 3 free owner contacts, Basic filters.
+Smart Finder (₹49 - 7 days): Unlimited contacts, Early access, Advanced filters.
+Premium (₹99/mo): Verified rooms only, Curated shortlists, No ads, Instant chat.
