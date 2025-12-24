@@ -42,13 +42,13 @@ app.use('/api/users', userRoutes);
 app.use('/api/owners', ownerRouter)
 app.use('/api', filerouter)
 
+app.use('/v1/api/plans', plansRouter)
 app.use('/v1/api/auth', authRoutes);
 app.use('/v1/api/users', userRoutes);
 app.use('/v1/api/owners', ownerRouter)
-app.use('/v1/api', filerouter)
 app.use('/v1/api/admin',adminRouter)
+app.use('/v1/api', filerouter)
 
-app.use('/v1/api/plans',plansRouter)
 app.get("/", (req: Request, res: Response) => {
     res.json({ "Leazo": "Welcome to LeazOOOOOOOOOO!" });
 })
