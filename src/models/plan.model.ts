@@ -5,13 +5,17 @@ export enum UserType {
   TENANT = "Tenant",
 }
 
-export interface IPlan extends Document {
+export interface IPlan {
+  _id?: mongoose.Types.ObjectId;
+  id: string;
   name: string;
   userType: UserType;
   price: number;
   durationDays?: number | null;
   features: string[];
   isActive: boolean;
+  createdAt?: Date;
+  updatedAt?: Date;
 }
 
 interface IPlanModel extends mongoose.Model<IPlan> {
