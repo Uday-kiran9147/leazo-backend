@@ -10,6 +10,7 @@ import filerouter from './routes/file_upload';
 import { adminRouter } from './routes/adminRoutes';
 import { underMaintenance } from './middleware/under_maintenance';
 import { log } from 'console';
+import { globalErrorHandler } from './middleware/error_handler';
 
 
 
@@ -49,6 +50,9 @@ app.use('/v1/api/admin',adminRouter)
 app.get("/", (req: Request, res: Response) => {
     res.json({ "Leazo": "Welcome to LeazOOOOOOOOOO!" });
 })
+
+// Global Error Handler - Must be the last middleware
+app.use(globalErrorHandler);
 
 
 // async function startCyclicFunc() {
