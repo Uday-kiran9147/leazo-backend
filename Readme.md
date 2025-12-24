@@ -103,5 +103,3 @@ Continuous Integration is configured via **GitHub Actions** (`.github/workflows/
 - **Caching**: Most `GET` requests for owners and portions are cached in Redis. Update/Delete operations automatically invalidate the relevant cache keys.
 
 ## 🔗 Documentation
-
-Detailed walkthroughs and implementation plans can be found in the `.gemini/antigravity/brain` directory (or designated artifacts folder).
