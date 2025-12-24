@@ -31,4 +31,5 @@ jobs:
         NODE_ENV: test
         JWT_SECRET: supersecret
         DB_URL: mongodb://localhost:27017/test
-        # Add other necessary env vars if their absence causes issues
+        REDIS_URL: https://dummy-url.upstash.io
+        REDIS_SECRET: dummypw

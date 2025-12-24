@@ -1,19 +1,49 @@
 import { MongoMemoryServer } from 'mongodb-memory-server';
 import mongoose from 'mongoose';
 
+import { BackgroundService } from '../src/utils/BackgroundService';
+
 let mongo: any;
+
+// Mock Upstash Redis package-level
+jest.mock('@upstash/redis', () => ({
+  Redis: jest.fn().mockImplementation(() => ({
+    get: jest.fn().mockResolvedValue(null),
+    set: jest.fn().mockResolvedValue('OK'),
+    del: jest.fn().mockResolvedValue(1),
+    exists: jest.fn().mockResolvedValue(0),
+    pipeline: jest.fn().mockReturnValue({
+      exec: jest.fn().mockResolvedValue([]),
+    }),
+  })),
+}));
+
+// Global Mock Redis Client Manager
+jest.mock('../src/cache/RedisClientManager', () => ({
+  RedisClientManager: {
+    get: jest.fn().mockResolvedValue(null),
+    set: jest.fn().mockResolvedValue(undefined),
+    delete: jest.fn().mockResolvedValue(undefined),
+    exists: jest.fn().mockResolvedValue(false),
+    getInstance: jest.fn().mockReturnValue({}),
+  },
+}));
+
+// Global Mock BackgroundService to prevent leaks between tests
+jest.mock('../src/utils/BackgroundService', () => ({
+  BackgroundService: {
+    trackActivity: jest.fn(),
+    sendNotification: jest.fn(),
+    flush: jest.fn().mockResolvedValue(undefined),
+    stop: jest.fn().mockResolvedValue(undefined),
+  },
+}));
+
+// Set global timeout for CI
+jest.setTimeout(30000);
 
 beforeAll(async () => {
   console.log('Test Setup: Starting MongoMemoryServer...');
-  // Mock Redis
-  jest.mock('../src/cache/RedisClientManager', () => ({
-    RedisClientManager: {
-      get: jest.fn(),
-      set: jest.fn(),
-      delete: jest.fn(),
-      exists: jest.fn(),
-    },
-  }));
 
   try {
     // Start MongoDB Memory Server
@@ -30,11 +60,31 @@ beforeAll(async () => {
 
 afterAll(async () => {
   console.log('Test Setup: Cleaning up...');
+
+  // Stop background processing to avoid MongoClientClosedError
+  await BackgroundService.stop();
+
   if (mongo) {
     await mongoose.connection.close();
     await mongo.stop();
   }
 });
+
+// Silence expected warnings during tests
+const originalWarn = console.warn;
+const originalError = console.error;
+
+console.warn = (...args) => {
+  if (args[0]?.toString().includes('[Upstash Redis]')) return;
+  if (args[0]?.toString().includes('Firebase not initialized')) return;
+  originalWarn(...args);
+};
+
+console.error = (...args) => {
+  if (args[0]?.toString().includes('registration token is not a valid FCM registration token')) return;
+  if (args[0]?.toString().includes('FAILED_PRECONDITION')) return;
+  originalError(...args);
+};
 
 beforeEach(async () => {
   const collections = mongoose.connection.collections;

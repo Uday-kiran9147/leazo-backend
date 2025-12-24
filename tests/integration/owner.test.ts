@@ -3,6 +3,7 @@ import app from '../../src/app';
 import { User } from '../../src/models/user.model';
 
 describe('Owner Integration Tests', () => {
+    jest.setTimeout(60000);
     let token: string;
     let userId: string;
 

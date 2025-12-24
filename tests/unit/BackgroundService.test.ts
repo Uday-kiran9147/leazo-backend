@@ -1,4 +1,4 @@
-import { BackgroundService } from '../../src/utils/BackgroundService';
+const { BackgroundService } = jest.requireActual('../../src/utils/BackgroundService');
 import { UserActivity } from '../../src/models/admin/userActivity';
 import { DailyActiveUser, MonthlyActiveUser, YearlyActiveUser } from '../../src/models/admin/activity';
 import { sendPushNotification } from '../../src/utils/push_notifications';
