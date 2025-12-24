@@ -5,16 +5,22 @@ export enum UserType {
   TENANT = "Tenant",
 }
 
-export interface IPlan extends Document {
+export interface IPlan {
+  _id?: mongoose.Types.ObjectId;
+  id: string;
   name: string;
   userType: UserType;
   price: number;
   durationDays?: number | null;
   features: string[];
   isActive: boolean;
+  createdAt?: Date;
+  updatedAt?: Date;
 }
 
+interface IPlanModel extends mongoose.Model<IPlan> {
 
+}
 const planSchema = new Schema<IPlan>(
   {
     id: { type: String, required: true, trim: true },
@@ -34,4 +40,4 @@ const planSchema = new Schema<IPlan>(
 
 planSchema.index({ name: 1, userType: 1 }, { unique: true });
 
-export const Plan = mongoose.model<IPlan>("Plan", planSchema);
+export const Plan = mongoose.model<IPlan, IPlanModel>("Plan", planSchema);
