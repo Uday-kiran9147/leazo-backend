@@ -40,7 +40,7 @@
     "@types/supertest": "^6.0.3",
     "@types/validator": "^13.12.1",
     "jest": "^30.2.0",
-    "mongodb-memory-server": "^11.0.1",
+    "mongodb-memory-server": "^20.19.0",
     "supertest": "^7.1.4",
     "ts-jest": "^29.4.6",
     "ts-node": "^10.9.2",
