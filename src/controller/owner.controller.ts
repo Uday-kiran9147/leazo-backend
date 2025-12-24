@@ -1,15 +1,28 @@
 import { Request, Response } from 'express';
-import { Owner } from "../models/owner.model";
 import ApiResponse from "../utils/api_response";
-import { User } from '../models/user.model';
-import { Building } from '../models/building.model';
-import { Portion } from '../models/portion.model';
 import { handleError } from '../utils/api_error';
 import { RedisClientManager } from '../cache/RedisClientManager';
 import { getStatusEmoji, getStatusMessage } from './admin.Controller';
-import { sendPushNotification } from '../utils/push_notifications';
+import { BackgroundService } from '../utils/BackgroundService';
 import { addressSchema, contactSchema } from '../utils/validators';
 import { Notification } from '../models/notification.model';
+import { MongooseOwnerRepository } from '../repositories/OwnerRepository';
+import { MongooseUserRepository } from '../repositories/UserRepository';
+import { MongooseBuildingRepository } from '../repositories/BuildingRepository';
+import { MongoosePortionRepository } from '../repositories/PortionRepository';
+import { OwnerService } from '../services/OwnerService';
+import { BuildingService } from '../services/BuildingService';
+import { PortionService } from '../services/PortionService';
+
+// Service Initializations
+const userRepository = new MongooseUserRepository();
+const ownerRepository = new MongooseOwnerRepository();
+const buildingRepository = new MongooseBuildingRepository();
+const portionRepository = new MongoosePortionRepository();
+
+const ownerService = new OwnerService(ownerRepository, userRepository);
+const buildingService = new BuildingService(buildingRepository);
+const portionService = new PortionService(portionRepository);
 /**
  * Creates a new owner and associates it with a user.
  *
@@ -29,28 +42,11 @@ import { Notification } from '../models/notification.model';
 
 export const createOwner = async (req: Request, res: Response) => {
     try {
-        const isOwner = req.body.user.isOwner;
-        if (isOwner == true) {
-            let apiResponse: ApiResponse = new ApiResponse(400, "Owner already exists", null);
-            return res.status(apiResponse.status).json(apiResponse);
+        if (req.body.user.isOwner) {
+            return res.status(400).json(new ApiResponse(400, "Owner already exists", null));
         }
-        const owner = new Owner(req.body);
-        await owner.save();
-        /**
-         * Retrieves a user document from the database based on the provided user ID in the request body.
-         * 
-         * @param req - The request object containing the user ID in the body.
-         * @returns The user document if found, otherwise null.
-         */
-        var user = await User.findOne({ _id: req.body.user._id });
-        if (user != null) {
-            user.isOwner = true;
-            user.ownerId = owner._id;
-            await user.save();
-        }
-        RedisClientManager.delete(`user:${req.body.user._id}`)
-        const apiResponse = new ApiResponse(201, "Owner created successfully", owner);
-        return res.status(apiResponse.status).json(apiResponse);
+        const owner = await ownerService.createOwner(req.body.user._id, req.body);
+        return res.status(201).json(new ApiResponse(201, "Owner created successfully", owner));
     } catch (error) {
         let apiResponse: ApiResponse = handleError(error, req, res);
         return res.status(apiResponse.status).json(apiResponse);
@@ -75,29 +71,18 @@ export const createOwner = async (req: Request, res: Response) => {
  */
 
 export const updateOwner = async (req: Request, res: Response) => {
-    console.log(req.originalUrl);
     const { ownerName, contactNumber } = req.body;
-    if(contactNumber.phoneNumber.length != 10){
-        return res.status(400).json({message: "Invalid contact number"})
+    if (contactNumber.phoneNumber.length != 10) {
+        return res.status(400).json({ message: "Invalid contact number" })
     }
     try {
-        var validatedContact = contactSchema.parse(contactNumber);
+        const validatedContact = contactSchema.parse(contactNumber);
         const ownerId = req.body.user.ownerId;
-        const owner = await Owner.findOneAndUpdate(
-            { _id: ownerId },
-            { $set: {
-                ownerName: ownerName,
-                contactNumber: validatedContact
-            } },
-            { runValidators: true, new: true }
-        );
+        const owner = await ownerService.updateOwner(ownerId, { ownerName, contactNumber: validatedContact });
         if (!owner) {
             return res.status(404).json({ message: "Owner not found" });
         }
-        await RedisClientManager.delete(`owner:${ownerId}`)
-        await RedisClientManager.delete(`owners:all`)
-        const apiResponse = new ApiResponse(200, "Owner updated successfully", owner);
-        return res.status(apiResponse.status).json(apiResponse);
+        return res.status(200).json(new ApiResponse(200, "Owner updated successfully", owner));
     } catch (error) {
         let apiResponse: ApiResponse = handleError(error, req, res);
         return res.status(apiResponse.status).json(apiResponse);
@@ -128,26 +113,11 @@ export const deleteOwner = async (req: Request, res: Response) => {
         if (!ownerId || !userId) {
             return res.status(400).json({ message: "Owner ID and User ID are required" });
         }
-        const owner = await Owner.findOneAndDelete({ _id: ownerId });
+        const owner = await ownerService.deleteOwner(ownerId, userId);
         if (!owner) {
             return res.status(404).json({ message: "Owner not found" });
         }
-        const user = await User.findOneAndUpdate(
-            { _id: userId },
-            {
-                $set: {
-                    isOwner: false,
-                    ownerId: null,
-                }
-            },
-            { runValidators: true, new: true }
-        );
-        if (!user) {
-            return res.status(404).json({ message: "User not found" });
-        }
-        await RedisClientManager.delete("owners:all")
-        const apiResponse = new ApiResponse(200, "Owner deleted successfully", user);
-        return res.status(apiResponse.status).json(apiResponse);
+        return res.status(200).json(new ApiResponse(200, "Owner deleted successfully", owner));
     } catch (error) {
         let apiResponse: ApiResponse = handleError(error, req, res);
         return res.status(apiResponse.status).json(apiResponse);
@@ -170,57 +140,24 @@ export const deleteOwner = async (req: Request, res: Response) => {
 
 export const getOwners = async (req: Request, res: Response) => {
     try {
-        var cachekey = 'owners:all';
-        var cachedOwners = await RedisClientManager.get(cachekey)
-        if(cachedOwners){
-            console.log("Serving all owners from cache");
-            const apiResponse = new ApiResponse(200, "success", JSON.parse(cachedOwners));
-            console.log("Cache Hit");
-            return res.status(200).json(apiResponse)
-        }
-        const owners = await Owner.find();
-        const apiResponse = new ApiResponse(200, "Owners retrieved successfully", { count: owners.length, owners });
-        await RedisClientManager.set(cachekey,JSON.stringify(apiResponse))
-        return res.status(apiResponse.status).json(apiResponse);
+        const page = parseInt(req.query.page as string) || 1;
+        const limit = parseInt(req.query.limit as string) || 10;
+        const owners = await ownerService.listOwners(page, limit);
+        return res.status(200).json(new ApiResponse(200, "Owners retrieved successfully", { count: owners.length, owners, page, limit }));
     } catch (error) {
         let apiResponse: ApiResponse = handleError(error, req, res);
         return res.status(apiResponse.status).json(apiResponse);
     }
 };
 
-/**
- * Retrieves a single owner by their ID.
- *
- * This function fetches the owner document associated with the provided `ownerId` from the request body.
- * If the owner is found, it is returned in the response; otherwise, a 404 status is returned.
- *
- * @param req - The request object containing the owner ID in the body.
- * @param res - The response object used to send the appropriate HTTP response.
- * @returns A promise that resolves to the HTTP response containing the owner data or an error message.
- *
- * @remarks
- * - If the owner is not found, a 404 status response is returned.
- * - In case of a server error, the error is handled, and an appropriate response is returned.
- */
-
 export const getOwnerById = async (req: Request, res: Response) => {
     try {
         const ownerId = req.body.user.ownerId;
-        var cacheKey = `owner:${ownerId}`
-        const cachedOwner = await RedisClientManager.get(cacheKey)
-        if(cachedOwner){
-            console.log("Get Owner cache hit");
-            const cachedResponse = new ApiResponse(200,"Owner Retrived Successfully",JSON.parse(cachedOwner))
-            return res.status(cachedResponse.status).json(cachedResponse)
-            
-        }
-        const owner = await Owner.findOne({ _id: ownerId });
+        const owner = await ownerService.getOwner(ownerId);
         if (!owner) {
             return res.status(404).json({ message: "Owner not found" });
         }
-        const apiResponse = new ApiResponse(200, "Owner Retrieved Successfully", owner);
-        await RedisClientManager.set(cacheKey,JSON.stringify(owner))
-        return res.status(apiResponse.status).json(apiResponse);
+        return res.status(200).json(new ApiResponse(200, "Owner Retrieved Successfully", owner));
     } catch (error) {
         let apiResponse: ApiResponse = handleError(error, req, res);
         return res.status(apiResponse.status).json(apiResponse);
@@ -244,31 +181,19 @@ export const getOwnerById = async (req: Request, res: Response) => {
  */
 
 export const createBuilding = async (req: Request, res: Response) => {
-    console.log(req.originalUrl);
     try {
         const ownerId = req.body.ownerId;
-        const owner = await Owner.findOne({ _id: ownerId });
-        if (!owner) {
-            return res.status(404).json({ message: "Owner not found" });
-        }
-            
-        // ✅ Validate request body using Zod
         const validatedAddress = addressSchema.parse(req.body.address);
         const validatedContact = contactSchema.parse(req.body.contact);
-        const building = new Building({
-            ownerId: ownerId,
+
+        const buildingData = {
+            ...req.body,
             address: validatedAddress,
-            buildingName: req.body.buildingName,
-            contact: validatedContact,
-            imageUrl: req.body.imageUrl,
-            availabilityStatus: req.body.availabilityStatus,
-            floors: req.body.floors,
-            parking: req.body.parking,
-            amenities: req.body.amenities
-        });
-        await building.save();
-        const apiResponse = new ApiResponse(201, "Building created successfully", building);
-        return res.status(apiResponse.status).json(apiResponse);
+            contact: validatedContact
+        };
+
+        const building = await buildingService.createBuilding(ownerId, buildingData);
+        return res.status(201).json(new ApiResponse(201, "Building created successfully", building));
     }
     catch (error) {
         let apiResponse: ApiResponse = handleError(error, req, res);
@@ -293,48 +218,27 @@ export const createBuilding = async (req: Request, res: Response) => {
  * - If there is a server error, it handles the error and returns an appropriate response.
  */
 export const updateBuilding = async (req: Request, res: Response) => {
-    console.log(req.originalUrl);
-    const { buildingId }= req.query;
+    const buildingId = req.params.buildingId || req.body.buildingId || req.query.buildingId;
 
     if (!buildingId) {
-        return res.status(400).json({ message: 'Building ID is required' });
+        return res.status(400).json({ message: "Building ID is required" });
     }
-    const notAllowedUpdates = ['ownerId'];
 
-    console.log("Request body data:", req.body.data);
-    
-    // Check for missing or invalid body
     if (!req.body || !req.body.data || typeof req.body.data !== 'object') {
-        console.log("Invalid request: 'data' object is required in body.");
-        
-      return res.status(400).json({ message: "Invalid request: 'data' object is required in body." });
+        return res.status(400).json({ message: "Invalid request: 'data' object is required in body." });
     }
-    const updates = Object.keys(req.body.data);
-    /**
-     * Checks if any of the updates are invalid operations.
-     *
-     * This function iterates over each update and checks if it is included in the list of not allowed updates.
-     *
-     * @param updates - An array of update strings to be checked.
-     * @returns A boolean indicating whether any updates are invalid operations.
-     */
 
+    const notAllowedUpdates = ['ownerId'];
+    const updates = Object.keys(req.body.data);
     const hasInvalidOperation = updates.some((update) => notAllowedUpdates.includes(update));
 
     if (hasInvalidOperation) {
         return res.status(400).json({ message: 'Invalid updates: ownerId cannot be updated!' });
     }
+
     try {
-        const building = await Building.findOneAndUpdate(
-            { _id: buildingId },
-            { $set: req.body.data },
-            { runValidators: true, new: true }
-        );
-        if (!building) {
-            return res.status(404).json({ message: "Building not found" });
-        }
-        const apiResponse = new ApiResponse(200, "Building updated successfully", building);
-        return res.status(apiResponse.status).json(apiResponse);
+        const building = await buildingService.updateBuilding(buildingId, req.body.data);
+        return res.status(200).json(new ApiResponse(200, "Building updated successfully", building));
     } catch (error) {
         let apiResponse: ApiResponse = handleError(error, req, res);
         return res.status(apiResponse.status).json(apiResponse);
@@ -354,31 +258,25 @@ export const updateBuilding = async (req: Request, res: Response) => {
  */
 export const deleteBuilding = async (req: Request, res: Response) => {
     try {
-        const buildingId = req.query.buildingId;
-        const ownerId = req.body.user.ownerId;
-        if (!buildingId || !ownerId) {
-            return res.status(400).json({ message: "Building ID and Owner ID are required" });
+        const buildingId = req.params.buildingId || req.body.buildingId || req.query.buildingId;
+        if (!buildingId) {
+            return res.status(400).json({ message: "Building ID is required" });
         }
-        const building = await Building.findOneAndDelete({ _id: buildingId },);
-        if (!building) {
-            return res.status(404).json({ message: "Building not found" });
-        }
-        const apiResponse = new ApiResponse(204, "Building deleted successfully", building);
-        return res.status(apiResponse.status).json(apiResponse);
+        const building = await buildingService.deleteBuilding(buildingId);
+        return res.status(204).json(new ApiResponse(204, "Building deleted successfully", building));
     } catch (error) {
         let apiResponse: ApiResponse = handleError(error, req, res);
         return res.status(apiResponse.status).json(apiResponse);
     }
 };
+
 export const getOwnerBuildings = async (req: Request, res: Response) => {
     try {
         const ownerId = req.body.user.ownerId;
-        if (!ownerId) {
-            return res.status(400).json({ message: "Owner ID is required" });
-        }
-        const buildings = await Building.find({ ownerId: ownerId });
-        const apiResponse = new ApiResponse(200, "Buildings retrieved successfully", { count: buildings.length, buildings });
-        return res.status(apiResponse.status).json(apiResponse);
+        const page = parseInt(req.query.page as string) || 1;
+        const limit = parseInt(req.query.limit as string) || 10;
+        const buildings = await buildingService.getBuildingsByOwner(ownerId, page, limit);
+        return res.status(200).json(new ApiResponse(200, "Buildings retrieved successfully", { count: buildings.length, buildings, page, limit }));
     } catch (error) {
         let apiResponse: ApiResponse = handleError(error, req, res);
         return res.status(apiResponse.status).json(apiResponse);
@@ -396,98 +294,44 @@ export const getOwnerBuildings = async (req: Request, res: Response) => {
  */
 export const createPortion = async (req: Request, res: Response) => {
     try {
-        const cacheKey = `portions:all`;
         const ownerId = req.body.user.ownerId;
-        const owner = await Owner.findOne({ _id: ownerId });
-        if (!owner) {
-            return res.status(404).json({ message: "Owner not found" });
-        }
-        const building = await Building.findOne({ _id: req.body.buildingId });
-        if (!building) {
-            return res.status(404).json({ message: "Building not found" });
-        }
-        const portion = new Portion(req.body);
-        await portion.save();
-        const apiResponse = new ApiResponse(201, "Portion created successfully", portion);
-        var emoji = getStatusEmoji(portion.approvalStatus);
-        var message = "Your portion " + portion.title + " has been " + getStatusMessage(portion.approvalStatus);
-        var user = await User.findOne({ _id: owner.userId });
-        if (user && user.deviceToken) {
-            // Send push notification
-            await sendPushNotification(user.deviceToken, portion.approvalStatus + emoji, message);
-            // Create notification
-            var notification = Notification.createNotification(
-                user._id,
-                portion.approvalStatus + emoji,
-                message,
-            )
-            console.log("Notification sent to user:", user.firstName);
-            (await notification).save();
-            
-        }
-        console.log(portion.approvalStatus+emoji)
-        console.log(message);
-        // Delete from cache: portions:all & building-portions:${portion.buildingId}
-        await RedisClientManager.delete(cacheKey);
-        await RedisClientManager.delete(`building-portions:${portion.buildingId}`);
+        const portion = await portionService.createPortion({ ...req.body, ownerId });
 
-        return res.status(apiResponse.status).json(apiResponse);
+        // Push Notification logic (can be moved to a listener or service eventually)
+        const owner = await ownerService.getOwner(ownerId);
+        if (owner) {
+            const emoji = getStatusEmoji(portion.approvalStatus);
+            const message = "Your portion " + portion.title + " has been " + getStatusMessage(portion.approvalStatus);
+            
+            BackgroundService.sendNotification(req.body.user.deviceToken, portion.approvalStatus + emoji, message);
+        }
+
+        return res.status(201).json(new ApiResponse(201, "Portion created successfully", portion));
     } catch (error) {
         let apiResponse: ApiResponse = handleError(error, req, res);
         return res.status(apiResponse.status).json(apiResponse);
     }
 }
-export const updatePortion = async (req: Request, res: Response) => {
-    const portionId = req.body.portionId
-    /**
-     * An array of property names that are not allowed to be updated.
-     * 
-     * This array is used to specify which fields should be restricted from being modified
-     * during update operations. Any attempt to update these fields should be prevented
-     * to maintain data integrity and security.
-     * 
-     * @constant {string[]} notAllowedUpdates
-     */
-    const notAllowedUpdates = ["ownerId", "buildingId"];
-    /**
-     * Extracts the keys from the `data` object in the request body.
-     * 
-     * @constant {string[]} updates - An array of keys from the `data` object in the request body.
-     */
-    const updates = Object.keys(req.body.data);
 
-    /**
-     * Checks if any of the updates contain operations that are not allowed.
-     *
-     * @constant {boolean} hasInvalidOperation - A boolean indicating whether there are any invalid operations in the updates.
-     */
+export const updatePortion = async (req: Request, res: Response) => {
+    const portionId = req.params.portionId || req.body.portionId || req.query.portionId;
+
+    if (!portionId) {
+        return res.status(400).json({ message: "Portion ID is required" });
+    }
+    const notAllowedUpdates = ["ownerId", "buildingId"];
+    const updates = Object.keys(req.body.data);
     const hasInvalidOperation = updates.some((update) => notAllowedUpdates.includes(update));
 
     if (hasInvalidOperation) {
         return res.status(400).json({ message: 'Invalid updates: ownerId and buildingId cannot be updated!' });
     }
     try {
-        /**
-         * Updates a portion document in the database with the provided data.
-         *
-         * @param {string} portionId - The ID of the portion to update.
-         * @param {Request} req - The request object containing the data to update.
-         * @returns {Promise<Portion | null>} - The updated portion document or null if not found.
-         */
-        const portion = await Portion.findOneAndUpdate(
-            { _id: portionId },
-            { $set: req.body.data },
-            { runValidators: true, new: true }
-        );
+        const portion = await portionService.updatePortion(portionId, req.body.data);
         if (!portion) {
             return res.status(404).json({ message: "Portion not found" });
         }
-        const cacheKey = `portions:all`;
-        const cacheKeybuilding = `building-portions:${portion.buildingId}`
-        await RedisClientManager.delete(cacheKey);
-        await RedisClientManager.delete(cacheKeybuilding);
-        const apiResponse = new ApiResponse(200, "Portion updated successfully", portion);
-        return res.status(apiResponse.status).json(apiResponse);
+        return res.status(200).json(new ApiResponse(200, "Portion updated successfully", portion));
     } catch (error) {
         let apiResponse: ApiResponse = handleError(error, req, res);
         return res.status(apiResponse.status).json(apiResponse);
@@ -496,58 +340,28 @@ export const updatePortion = async (req: Request, res: Response) => {
 
 export const deletePortion = async (req: Request, res: Response) => {
     try {
-        const portionId = req.query.portionId;
-        const ownerId = req.body.user.ownerId;
-        if (!portionId || !ownerId) {
-            return res.status(400).json({ message: "Portion ID and Owner ID are required" });
+        const portionId = req.params.portionId || req.body.portionId || req.query.portionId;
+        if (!portionId) {
+            return res.status(400).json({ message: "Portion ID is required" });
         }
-        const portion = await Portion.findOneAndDelete({ _id: portionId },);
+        const portion = await portionService.deletePortion(portionId);
         if (!portion) {
             return res.status(404).json({ message: "Portion not found" });
         }
-        /**
-         * Creates a new ApiResponse indicating that a portion has been successfully deleted.
-         *
-         * @constant {ApiResponse} apiResponse - The response object containing the status code, message, and the deleted portion.
-         * @property {number} statusCode - The HTTP status code (204) indicating successful deletion.
-         * @property {string} message - A message indicating that the portion was deleted successfully.
-         * @property {any} data - The deleted portion data.
-         */
-        const cacheKey = `portions:all`;
-        // Delete from cache: portions:all & building-portions:${portion.buildingId}
-        await RedisClientManager.delete(cacheKey);
-        await RedisClientManager.delete(`building-portions:${portion.buildingId}`);
-        const apiResponse = new ApiResponse(204, "Portion deleted successfully", portion);
-        return res.status(apiResponse.status).json(apiResponse);
+        return res.status(204).json(new ApiResponse(204, "Portion deleted successfully", portion));
     } catch (error) {
         let apiResponse: ApiResponse = handleError(error, req, res);
         return res.status(apiResponse.status).json(apiResponse);
     }
 };
+
 export const getPortionsByBuildingId = async (req: Request, res: Response) => {
     try {
-        const buildingId = req.query.buildingId
-        /**
-         * Retrieves portions associated with a specific building.
-         *
-         * @param buildingId - The ID of the building to find portions for.
-         * @returns A promise that resolves to an array of portions associated with the specified building.
-         */
-        const cacheKey = `building-portions:${buildingId}`
-        const cachedResponse = await RedisClientManager.get(cacheKey)
-        if(cachedResponse){
-            const apiResponseCache = new ApiResponse(200,"Portions retrieved successfully",JSON.parse(cachedResponse))
-            return res.status(apiResponseCache.status).json(apiResponseCache)
-        }
-        const portions = await Portion.find({ buildingId: buildingId });
-        if (!portions) {
-            return res.status(404).json({ message: "Portions not found" });
-        }
-        const apiResponse = new ApiResponse(200, "Portions retrieved successfully", { count: portions.length, portions });
-        const responseData = { count: portions.length, portions };
-
-        await RedisClientManager.set(cacheKey,JSON.stringify(responseData))
-        return res.status(apiResponse.status).json(apiResponse);
+        const buildingId = req.query.buildingId as string;
+        const page = parseInt(req.query.page as string) || 1;
+        const limit = parseInt(req.query.limit as string) || 10;
+        const portions = await portionService.getPortionsByBuilding(buildingId, page, limit);
+        return res.status(200).json(new ApiResponse(200, "Portions retrieved successfully", { count: portions.length, portions, page, limit }));
     } catch (error) {
         let apiResponse: ApiResponse = handleError(error, req, res);
         return res.status(apiResponse.status).json(apiResponse);

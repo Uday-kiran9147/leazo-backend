@@ -18,7 +18,6 @@ const userActivitySchema = new Schema<IUserActivity>({
   date: { 
     type: Date, 
     required: true,
-    index: true,
     default: Date.now 
   },
   activityType: { 

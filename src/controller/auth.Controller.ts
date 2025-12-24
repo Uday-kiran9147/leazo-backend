@@ -48,7 +48,7 @@ export const login = async (req: Request, res: Response) => {
 
         // Return user data and token with a 200 status code
         const apiResponse = new ApiResponse(200, "Login successful", { user, token });
-        await user.trackActivity('login', deviceInfo, ipAddress);
+        user.trackActivity('login', deviceInfo, ipAddress);
         return res.status(200).json(apiResponse);
     } catch (error: any) {
         // For generic errors, return a 500 Internal Server Error

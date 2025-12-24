@@ -42,7 +42,7 @@ interface IBuildingModel extends mongoose.Model<IBuilding>{}
 const buildingSchema = new mongoose.Schema<IBuilding>(
     {
         // _id:{type:mongoose.Schema.Types.ObjectId},
-        ownerId: { type: mongoose.Schema.Types.ObjectId, ref: 'Owner', required: true },
+        ownerId: { type: mongoose.Schema.Types.ObjectId, ref: 'Owner', required: true, index: true },
         address: { type: addressSchema, required: true },
         buildingName: { type: String, required: true },
         contact: { type: contactSchema, required: true },
