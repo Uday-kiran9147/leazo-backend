@@ -7,6 +7,7 @@ export class BackgroundService {
     private static BATCH_SIZE = 50;
     private static BATCH_TIMEOUT = 5000; // 5 seconds
     private static timer: NodeJS.Timeout | null = null;
+    private static processingPromise: Promise<void> | null = null;
 
     /**
      * Sends a push notification in the background without blocking the request.
@@ -38,6 +39,19 @@ export class BackgroundService {
     }
 
     private static async processActivityBatch() {
+        if (this.processingPromise) {
+            await this.processingPromise;
+        }
+
+        this.processingPromise = this._internalProcessBatch();
+        try {
+            await this.processingPromise;
+        } finally {
+            this.processingPromise = null;
+        }
+    }
+
+    private static async _internalProcessBatch() {
         if (this.timer) {
             clearTimeout(this.timer);
             this.timer = null;
@@ -89,6 +103,32 @@ export class BackgroundService {
         } catch (error) {
             console.error('Failed to process activity batch:', error);
             // In a real system, we might want to retry or log to a dead letter queue
+        }
+    }
+
+    /**
+     * Flushes the current batch immediately and waits for it to finish.
+     */
+    static async flush() {
+        if (this.timer) {
+            clearTimeout(this.timer);
+            this.timer = null;
+        }
+        await this.processActivityBatch();
+    }
+
+    /**
+     * Stops the background service, clearing pending timers and batches.
+     * Useful for clean test teardown.
+     */
+    static async stop() {
+        if (this.timer) {
+            clearTimeout(this.timer);
+            this.timer = null;
+        }
+        this.activityBatch = [];
+        if (this.processingPromise) {
+            await this.processingPromise;
         }
     }
 }

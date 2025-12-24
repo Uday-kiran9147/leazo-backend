@@ -1,0 +1,35 @@
+name: CI Tests
+
+on:
+  push:
+    branches: [ master, dev ]
+  pull_request:
+    branches: [ master, dev ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        node-version: [18.x, 20.x]
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Use Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ matrix.node-version }}
+
+    - name: Install dependencies
+      run: npm install
+
+    - name: Run Tests
+      run: npm test -- --forceExit
+      env:
+        NODE_ENV: test
+        JWT_SECRET: supersecret
+        DB_URL: mongodb://localhost:27017/test
+        REDIS_URL: https://dummy-url.upstash.io
+        REDIS_SECRET: dummypw

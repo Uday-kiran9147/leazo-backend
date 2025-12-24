@@ -4,7 +4,6 @@ import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import { log, timeStamp } from "console";
 import ApiError from "../utils/api_error";
-import { Owner } from "./owner.model";
 import { UserActivity } from "./admin/userActivity";
 import { BackgroundService } from "../utils/BackgroundService";
 
