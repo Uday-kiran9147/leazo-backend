@@ -11,6 +11,7 @@ import { adminRouter } from './routes/adminRoutes';
 import { underMaintenance } from './middleware/under_maintenance';
 import { log } from 'console';
 import { globalErrorHandler } from './middleware/error_handler';
+import plansRouter from './routes/plansRoute';
 
 
 
@@ -47,6 +48,7 @@ app.use('/v1/api/owners', ownerRouter)
 app.use('/v1/api', filerouter)
 app.use('/v1/api/admin',adminRouter)
 
+app.use('/v1/api/plans',plansRouter)
 app.get("/", (req: Request, res: Response) => {
     res.json({ "Leazo": "Welcome to LeazOOOOOOOOOO!" });
 })
