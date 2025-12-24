@@ -1,9 +1,6 @@
 import request from 'supertest';
 import app from '../../src/app';
 import { User } from '../../src/models/user.model';
-import { Owner } from '../../src/models/owner.model';
-import { Building } from '../../src/models/building.model';
-import { Portion } from '../../src/models/portion.model';
 
 describe('Owner Integration Tests', () => {
     let token: string;
@@ -17,8 +14,8 @@ describe('Owner Integration Tests', () => {
         phoneNumber: '1234567890'
     };
 
-    beforeAll(async () => {
-        // Signup and Login to get token
+    beforeEach(async () => {
+    // Signup and Login to get token for EVERY test because setup.ts clears DB
         await request(app).post('/api/auth/sign-up').send(testUser);
         const loginRes = await request(app).post('/api/auth/login').send({
             email: testUser.email,
@@ -31,12 +28,16 @@ describe('Owner Integration Tests', () => {
     it('should create an owner profile', async () => {
         const ownerData = {
             ownerName: 'Leazo Properties',
-            contact: '9876543210'
+            contactNumber: {
+                countryCode: '+91',
+                phoneNumber: '9876543210'
+            },
+            email: 'owner@example.com'
         };
 
         const response = await request(app)
             .post('/api/owners/create-owner')
-            .set('Authorization ', token)
+            .set('Authorization', token)
             .send(ownerData);
 
         expect(response.status).toBe(201);
@@ -50,7 +51,20 @@ describe('Owner Integration Tests', () => {
     });
 
     it('should create a building for the owner', async () => {
-        // Get user to have ownerId
+        // Create owner first
+        const ownerData = {
+            ownerName: 'Leazo Properties',
+            contactNumber: {
+                countryCode: '+91',
+                phoneNumber: '9876543210'
+            },
+            email: 'owner@example.com'
+        };
+        await request(app)
+            .post('/api/owners/create-owner')
+            .set('Authorization', token)
+            .send(ownerData);
+
         const user = await User.findById(userId);
         
         const buildingData = {
@@ -66,7 +80,10 @@ describe('Owner Integration Tests', () => {
             contact: {
                 countryCode: '+91',
                 phoneNumber: '9876543210'
-            }
+            },
+            availabilityStatus: 'available',
+            floors: 5,
+            parking: true
         };
 
         const response = await request(app)
@@ -80,24 +97,67 @@ describe('Owner Integration Tests', () => {
     });
 
     it('should create a portion for a building', async () => {
-        // First get the building id
-        const buildingsRes = await request(app)
-            .get('/api/owners/buildings/me')
-            .set('Authorization', token);
-        
-        const buildingId = buildingsRes.body.data[0]._id;
+        // Create owner
+        const ownerData = {
+            ownerName: 'Leazo Properties',
+            contactNumber: {
+                countryCode: '+91',
+                phoneNumber: '9876543210'
+            },
+            email: 'owner@example.com'
+        };
+        await request(app)
+            .post('/api/owners/create-owner')
+            .set('Authorization', token)
+            .send(ownerData);
 
-        const portionData = {
-            buildingId: buildingId,
-            title: '1BHK Luxury Suite',
-            price: 15000,
+        const user = await User.findById(userId);
+
+        // Create building
+        const buildingData = {
+            ownerId: user?.ownerId,
+            buildingName: 'Leazo Heights',
             address: {
                 city: 'Hyderabad',
                 locality: 'Madhapur',
                 state: 'Telangana',
                 country: 'India',
                 zipCode: '500081'
-            }
+            },
+            contact: {
+                countryCode: '+91',
+                phoneNumber: '9876543210'
+            },
+            availabilityStatus: 'available',
+            floors: 5,
+            parking: true
+        };
+        const buildingRes = await request(app)
+            .post('/api/owners/create-building')
+            .set('Authorization', token)
+            .send(buildingData);
+        
+        const buildingId = buildingRes.body.data._id;
+
+        const portionData = {
+            buildingId: buildingId,
+            title: '1BHK Luxury Suite',
+            description: 'Beautiful 1BHK with city view',
+            price: 15000,
+            portionNumber: '101',
+            floor: '1st',
+            address: {
+                city: 'Hyderabad',
+                locality: 'Madhapur',
+                state: 'Telangana',
+                country: 'India',
+                zipCode: '500081'
+            },
+            contact: {
+                countryCode: '+91',
+                phoneNumber: '9876543210'
+            },
+            availabilityStatus: 'available'
         };
 
         const response = await request(app)

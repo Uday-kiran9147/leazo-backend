@@ -1,5 +1,5 @@
 import mongoose from "mongoose";
-import { addressSchema, contactSchema } from "./building.model";
+import { addressSchema, contactSchema, IAddress, IContact } from "./common.schema";
 
 // Accessable on the instances.
 interface IPortionMethods {}
@@ -9,23 +9,24 @@ export enum ApprovalStatus {
     Hold = "Hold",
     Approved = "Approved",
     Rejected = "Rejected",
-  }
+}
+
 // Define the Portion document interface (combines fields with methods)
-interface IPortion extends mongoose.Document, IPortionMethods {
+export interface IPortion extends mongoose.Document, IPortionMethods {
     _id: mongoose.Types.ObjectId;
     buildingId: mongoose.Types.ObjectId;
     ownerId: mongoose.Types.ObjectId;
     portionNumber: string;
     floor: string;
-    contact: any;
-    address: any;
+  contact: IContact;
+  address: IAddress;
     title: string;
     description: string;
     price: number;
     images: string[];
     isActive: boolean;
     availabilityStatus: string;
-    approvalStatus: String;
+  approvalStatus: string;
     amenities: string[];
 }
 
@@ -51,27 +52,27 @@ const portionSchema = new mongoose.Schema<IPortion>(
         type: String,
         required: true,
         enum: ["available", "not available"],
-        index: true, // ✅ Add index
+        index: true,
       },
       approvalStatus: {
         type: String,
-        default: "Review", // ✅ Ensure this matches enum values
+        default: "Review",
         enum: ["Review", "Hold", "Approved", "Rejected"],
-        index: true, // ✅ Add index
+        index: true,
       },
       amenities: [{ type: String }],
     },
     { timestamps: true }
-  );  
+);  
 
-  // In Portion schema definition
-  portionSchema.index({
+// Text index for search
+portionSchema.index({
     "address.state": "text",
     "address.country": "text",
     "address.city": "text",
     "address.locality": "text",
     title: "text",
     description: "text"
-  });
+});
 
-export const Portion = mongoose.model<IPortion,IPortionModel>('Portion', portionSchema);
+export const Portion = mongoose.model<IPortion, IPortionModel>('Portion', portionSchema);
