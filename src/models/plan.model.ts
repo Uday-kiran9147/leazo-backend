@@ -14,7 +14,9 @@ export interface IPlan extends Document {
   isActive: boolean;
 }
 
+interface IPlanModel extends mongoose.Model<IPlan> {
 
+}
 const planSchema = new Schema<IPlan>(
   {
     id: { type: String, required: true, trim: true },
@@ -34,4 +36,4 @@ const planSchema = new Schema<IPlan>(
 
 planSchema.index({ name: 1, userType: 1 }, { unique: true });
 
-export const Plan = mongoose.model<IPlan>("Plan", planSchema);
+export const Plan = mongoose.model<IPlan, IPlanModel>("Plan", planSchema);
