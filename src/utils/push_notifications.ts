@@ -1,16 +1,31 @@
 import * as admin from 'firebase-admin';
+import fs from 'fs';
+import path from 'path';
 
-// import serviceaccount from "../../service_account.json";
-const serviceaccount = require("../../service_account.json") as admin.ServiceAccount;
+const serviceAccountPath = path.join(__dirname, "../../service_account.json");
 
-admin.initializeApp({
-  credential: admin.credential.cert(serviceaccount),
-  storageBucket:"gs://leazoo.appspot.com"
-});
+if (fs.existsSync(serviceAccountPath)) {
+  const serviceaccount = require(serviceAccountPath) as admin.ServiceAccount;
+  admin.initializeApp({
+    credential: admin.credential.cert(serviceaccount),
+    storageBucket: "gs://leazoo.appspot.com"
+  });
+} else {
+  if (process.env.NODE_ENV !== 'test') {
+    console.warn("service_account.json not found. Push notifications will be disabled.");
+  }
+}
 
 
 
 export async function sendPushNotification(token: string, title: string, body: string) {
+  if (admin.apps.length === 0) {
+    if (process.env.NODE_ENV !== 'test') {
+      console.log('Firebase not initialized. Skipping notification.');
+    }
+    return;
+  }
+
   const message = {
     notification: {
       title: title,
