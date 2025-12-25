@@ -25,6 +25,7 @@ export interface IPortion extends mongoose.Document, IPortionMethods {
     price: number;
     images: string[];
     isActive: boolean;
+    isDeleted: boolean;
     availabilityStatus: string;
   approvalStatus: string;
     amenities: string[];
@@ -48,6 +49,7 @@ const portionSchema = new mongoose.Schema<IPortion>(
       price: { type: Number, required: true },
       images: [{ type: String }],
       isActive: { type: Boolean, default: true },
+      isDeleted: {type: Boolean,default: false},
       availabilityStatus: {
         type: String,
         required: true,

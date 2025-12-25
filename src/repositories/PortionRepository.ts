@@ -19,7 +19,7 @@ export class MongoosePortionRepository implements IPortionRepository {
     }
 
     async findByBuildingId(buildingId: string, page: number = 1, limit: number = 10): Promise<any[]> {
-        return await Portion.find({ buildingId })
+        return await Portion.find({ buildingId, isDeleted: false })
             .skip((page - 1) * limit)
             .limit(limit)
             .lean();
@@ -34,6 +34,6 @@ export class MongoosePortionRepository implements IPortionRepository {
     }
 
     async delete(id: string): Promise<any> {
-        return await Portion.findOneAndDelete({ _id: id });
+        return await Portion.findOneAndUpdate({ _id: id }, { $set: { isDeleted: true } }, { new: true });
     }
 }
