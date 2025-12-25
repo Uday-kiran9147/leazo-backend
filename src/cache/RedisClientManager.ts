@@ -23,7 +23,10 @@ export class RedisClientManager {
 
             if (keys.length === 0) return;
 
-            await Promise.all(keys.map((key) => redis.del(key)));
+            await Promise.all(keys.map((key) =>{
+                console.log(`[Redis] DELETE PATTERN key: ${key}`);
+                return redis.del(key);
+            }));
         } catch (error) {
             console.error(`[Redis] DELETE PATTERN failed: ${pattern}`, error);
         }
