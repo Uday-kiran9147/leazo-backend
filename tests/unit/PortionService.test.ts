@@ -30,8 +30,8 @@ describe('PortionService', () => {
 
         expect(result).toEqual(mockPortion);
         expect(mockPortionRepository.create).toHaveBeenCalledWith(portionData);
-        expect(RedisClientManager.delete).toHaveBeenCalledWith('building-portions:b123');
-        expect(RedisClientManager.delete).toHaveBeenCalledWith('portions:all');
+        expect(RedisClientManager.delete).toHaveBeenCalledWith(`portion:${mockPortion._id}`);
+        expect(RedisClientManager.deletePattern).toHaveBeenCalledWith(`building-portions:${portionData.buildingId}:*`);
     });
 
     it('should get portions by building with pagination and caching', async () => {
@@ -61,7 +61,8 @@ describe('PortionService', () => {
 
         expect(result).toEqual(mockPortion);
         expect(mockPortionRepository.update).toHaveBeenCalledWith(portionId, updateData);
-        expect(RedisClientManager.delete).toHaveBeenCalledWith('building-portions:b123');
+        expect(RedisClientManager.delete).toHaveBeenCalledWith(`portion:${portionId}`);
+        expect(RedisClientManager.deletePattern).toHaveBeenCalledWith(`building-portions:${mockPortion.buildingId}:*`);
     });
 
     it('should delete a portion and invalidate cache', async () => {
@@ -74,6 +75,7 @@ describe('PortionService', () => {
 
         expect(result).toEqual(mockPortion);
         expect(mockPortionRepository.delete).toHaveBeenCalledWith(portionId);
-        expect(RedisClientManager.delete).toHaveBeenCalledWith('building-portions:b123');
+        expect(RedisClientManager.delete).toHaveBeenCalledWith(`portion:${portionId}`);
+        expect(RedisClientManager.deletePattern).toHaveBeenCalledWith(`building-portions:${mockPortion.buildingId}:*`);
     });
 });

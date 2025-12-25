@@ -24,7 +24,9 @@ jest.mock('../src/cache/RedisClientManager', () => ({
     get: jest.fn().mockResolvedValue(null),
     set: jest.fn().mockResolvedValue(undefined),
     delete: jest.fn().mockResolvedValue(undefined),
+    deletePattern: jest.fn().mockResolvedValue(undefined),
     exists: jest.fn().mockResolvedValue(false),
+    incr: jest.fn().mockResolvedValue(0),
     getInstance: jest.fn().mockReturnValue({}),
   },
 }));

@@ -1,6 +1,6 @@
-import { IOwnerRepository } from '../repositories/OwnerRepository';
-import { IUserRepository } from '../repositories/UserRepository';
-import { RedisClientManager } from '../cache/RedisClientManager';
+import { IOwnerRepository } from "../repositories/OwnerRepository";
+import { IUserRepository } from "../repositories/UserRepository";
+import { RedisClientManager } from "../cache/RedisClientManager";
 
 export class OwnerService {
     constructor(
@@ -10,8 +10,15 @@ export class OwnerService {
 
     async createOwner(userId: string, ownerData: any) {
         const owner = await this.ownerRepository.create({ ...ownerData, userId });
-        await this.userRepository.update(userId, { isOwner: true, ownerId: owner._id });
+
+        await this.userRepository.update(userId, {
+            isOwner: true,
+            ownerId: owner._id
+        });
+
         await RedisClientManager.delete(`user:${userId}`);
+        await RedisClientManager.deletePattern("owners:all:*");
+
         return owner;
     }
 
@@ -39,15 +46,24 @@ export class OwnerService {
 
     async updateOwner(id: string, updateData: any) {
         const owner = await this.ownerRepository.update(id, updateData);
+
         await RedisClientManager.delete(`owner:${id}`);
-        await RedisClientManager.delete('owners:all');
+        await RedisClientManager.deletePattern("owners:all:*");
+
         return owner;
     }
 
     async deleteOwner(id: string, userId: string) {
         const owner = await this.ownerRepository.delete(id);
-        await this.userRepository.update(userId, { isOwner: false, ownerId: null });
-        await RedisClientManager.delete('owners:all');
+
+        await this.userRepository.update(userId, {
+            isOwner: false,
+            ownerId: null
+        });
+
+        await RedisClientManager.delete(`owner:${id}`);
+        await RedisClientManager.deletePattern("owners:all:*");
+
         return owner;
     }
 }

@@ -273,10 +273,13 @@ export const deleteBuilding = async (req: Request, res: Response) => {
 export const getOwnerBuildings = async (req: Request, res: Response) => {
     try {
         const ownerId = req.body.user.ownerId;
+        if (!ownerId) {
+            return res.status(400).json({ message: "Owner ID is required" });
+        }
         const page = parseInt(req.query.page as string) || 1;
         const limit = parseInt(req.query.limit as string) || 10;
         const buildings = await buildingService.getBuildingsByOwner(ownerId, page, limit);
-        return res.status(200).json(new ApiResponse(200, "Buildings retrieved successfully", { count: buildings.length, buildings, page, limit }));
+        return res.status(200).json(new ApiResponse(200, "Buildings retrieved successfully", { count: buildings.length,page, limit , buildings, }));
     } catch (error) {
         let apiResponse: ApiResponse = handleError(error, req, res);
         return res.status(apiResponse.status).json(apiResponse);

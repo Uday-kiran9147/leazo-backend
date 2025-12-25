@@ -1,5 +1,8 @@
 import { BuildingService } from '../../src/services/BuildingService';
 import { IBuildingRepository } from '../../src/repositories/BuildingRepository';
+import { RedisClientManager } from '../../src/cache/RedisClientManager';
+
+jest.mock('../../src/cache/RedisClientManager');
 
 describe('BuildingService', () => {
     let buildingService: BuildingService;
@@ -26,6 +29,7 @@ describe('BuildingService', () => {
         const result = await buildingService.createBuilding(ownerId, buildingData);
         expect(result).toEqual(mockBuilding);
         expect(mockBuildingRepository.create).toHaveBeenCalledWith({ ...buildingData, ownerId });
+        expect(RedisClientManager.delete).toHaveBeenCalledWith(`owner-buildings:${ownerId}`);
     });
 
     it('should get buildings by owner id', async () => {
@@ -36,19 +40,20 @@ describe('BuildingService', () => {
 
         const result = await buildingService.getBuildingsByOwner(ownerId);
         expect(result).toEqual(mockBuildings);
-        expect(mockBuildingRepository.findByOwnerId).toHaveBeenCalledWith(ownerId, undefined, undefined);
+        expect(mockBuildingRepository.findByOwnerId).toHaveBeenCalledWith(ownerId, 1, 10);
     });
 
     it('should update a building', async () => {
         const buildingId = 'b123';
         const updateData = { buildingName: 'Updated Name' };
-        const mockBuilding = { _id: buildingId, ...updateData };
+        const mockBuilding = { _id: buildingId, ...updateData, ownerId: 'owner123' };
         
         mockBuildingRepository.update.mockResolvedValue(mockBuilding as any);
 
         const result = await buildingService.updateBuilding(buildingId, updateData);
         expect(result).toEqual(mockBuilding);
         expect(mockBuildingRepository.update).toHaveBeenCalledWith(buildingId, updateData);
+        expect(RedisClientManager.delete).toHaveBeenCalledWith(`owner-buildings:${mockBuilding.ownerId}`);
     });
 
     it('should throw error if building to update not found', async () => {
@@ -58,13 +63,14 @@ describe('BuildingService', () => {
 
     it('should delete a building', async () => {
         const buildingId = 'b123';
-        const mockBuilding = { _id: buildingId };
+        const mockBuilding = { _id: buildingId, ownerId: 'owner123' };
         
         mockBuildingRepository.delete.mockResolvedValue(mockBuilding as any);
 
         const result = await buildingService.deleteBuilding(buildingId);
         expect(result).toEqual(mockBuilding);
         expect(mockBuildingRepository.delete).toHaveBeenCalledWith(buildingId);
+        expect(RedisClientManager.delete).toHaveBeenCalledWith(`owner-buildings:${mockBuilding.ownerId}`);
     });
 
     it('should throw error if building to delete not found', async () => {

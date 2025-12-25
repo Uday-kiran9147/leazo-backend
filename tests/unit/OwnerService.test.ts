@@ -96,7 +96,7 @@ describe('OwnerService', () => {
         expect(result).toEqual(mockOwner);
         expect(mockOwnerRepository.update).toHaveBeenCalledWith(ownerId, updateData);
         expect(RedisClientManager.delete).toHaveBeenCalledWith(`owner:${ownerId}`);
-        expect(RedisClientManager.delete).toHaveBeenCalledWith('owners:all');
+        expect(RedisClientManager.deletePattern).toHaveBeenCalledWith('owners:all:*');
     });
 
     it('should delete an owner and update user status', async () => {
@@ -111,6 +111,7 @@ describe('OwnerService', () => {
         expect(result).toEqual(mockOwner);
         expect(mockOwnerRepository.delete).toHaveBeenCalledWith(ownerId);
         expect(mockUserRepository.update).toHaveBeenCalledWith(userId, { isOwner: false, ownerId: null });
-        expect(RedisClientManager.delete).toHaveBeenCalledWith('owners:all');
+        expect(RedisClientManager.delete).toHaveBeenCalledWith(`owner:${ownerId}`);
+        expect(RedisClientManager.deletePattern).toHaveBeenCalledWith('owners:all:*');
     });
 });
