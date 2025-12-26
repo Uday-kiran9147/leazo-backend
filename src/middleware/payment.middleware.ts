@@ -5,7 +5,7 @@ export const getCheckoutSessionMiddleware = (req:Request, res:Response, next:Nex
     
     const { email, firstName } = req.body.user;
     const { productId} = req.body;
-    const customerId  = req.body.user._id.toString();
+    const customerId  = req.body.user.ownerId.toString();
     const missingFields = [];
     if (!productId || !customerId || !email || !firstName) {
         if (!productId) missingFields.push("productId");
