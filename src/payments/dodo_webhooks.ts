@@ -42,7 +42,7 @@ async function rollbackBusinessLogic(payment: any) {
 
 export const dodoWebhookHandler = async (req: Request, res: Response) => {
     try {
-        const signature = req.headers["x-signature"] as string;
+        const signature = req.headers["webhook-id"] as string;
         const payload = req.body;
 
         const expectedSignature = crypto
