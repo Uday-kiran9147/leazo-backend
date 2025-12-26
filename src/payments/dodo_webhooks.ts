@@ -81,7 +81,7 @@ export const dodoWebhookHandler = async (req: Request, res: Response) => {
         }
 
         if (event.type === 'payment.failed' || event.type === 'payment.cancelled') {
-            const paymentId = event.data.metadata.paymentId;
+            const paymentId = event.data.metadata.internal_payment_id;
             // Use your metadata here
             const data = event.data;
             const updatedPayment = await PaymentEntity.findByIdAndUpdate(
