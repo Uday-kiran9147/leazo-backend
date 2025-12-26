@@ -59,7 +59,7 @@ export const dodoWebhookHandler = async (req: Request, res: Response) => {
         payment.succeeded
         */
         if (event.type === 'payment.succeeded') {
-            const paymentId = event.data.metadata.paymentId;
+            const paymentId = event.data.metadata.internal_payment_id;
             // Use your metadata here
             const data = event.data;
             const updatedPayment = await PaymentEntity.findByIdAndUpdate(
@@ -97,7 +97,7 @@ export const dodoWebhookHandler = async (req: Request, res: Response) => {
             console.log("Updated payment with gateway session ID:", updatedPayment);
         }
         if (event.type === 'payment.processing') {
-            const paymentId = event.data.metadata.paymentId;
+            const paymentId = event.data.metadata.internal_payment_id;
             // Use your metadata here
             const data = event.data;
             const updatedPayment = await PaymentEntity.findByIdAndUpdate(
