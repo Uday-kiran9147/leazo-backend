@@ -1,4 +1,5 @@
 import dotenv from 'dotenv';
+dotenv.config();
 import express from 'express';
 import axios from 'axios';
 import userRoutes from './routes/userRoutes';
@@ -12,11 +13,12 @@ import { underMaintenance } from './middleware/under_maintenance';
 import { log } from 'console';
 import { globalErrorHandler } from './middleware/error_handler';
 import plansRouter from './routes/plansRoute';
+import { paymentsRouter } from './routes/paymentsRoutes';
 
 
 
 // Load environment variables from .env file
-dotenv.config();
+
 // TODO: Always Match the Api response structure of db and cache
 
 // connect to database
@@ -29,6 +31,7 @@ connectToDatabase()
 // console.log(process.env.REFRESH_TOKEN_EXPIRY);
 // console.log(process.env.REDIS_URL);
 // console.log(process.env.REDIS_SECRET);
+console.log("DODO KEY:", process.env.DODO_API_KEY);
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -42,6 +45,7 @@ app.use('/api/users', userRoutes);
 app.use('/api/owners', ownerRouter)
 app.use('/api', filerouter)
 
+app.use('/v1/api/payments', paymentsRouter);
 app.use('/v1/api/plans', plansRouter)
 app.use('/v1/api/auth', authRoutes);
 app.use('/v1/api/users', userRoutes);
