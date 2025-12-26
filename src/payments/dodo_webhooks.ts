@@ -1,13 +1,14 @@
-import { PaymentEntity } from "./payments.models";
+import { IPayment, PaymentEntity } from "./payments.models";
 import { Request, Response } from "express";
 import { Owner } from "../models/owner.model";
 import { dodosession } from "./dodo_payments_strategy";
 
 
-const activateBusinessLogic = async (payment: any) => {
+const activateBusinessLogic = async (payment: IPayment) => {
+    console.log("Activating business logic for payment");
     console.log("Activating business logic for payment:", payment._id);
 
-    const owner = await Owner.findOne({ userId: payment.userId });
+    const owner = await Owner.findOne({ _id: payment.userId });
 
     if (!owner) {
         throw new Error("Owner not found for user");
@@ -71,8 +72,11 @@ export const dodoWebhookHandler = async (req: Request, res: Response) => {
                 },
                 { new: true }
             );
-            await activateBusinessLogic(updatedPayment);
+
             console.log("Updated payment with gateway session ID:", updatedPayment);
+            if (updatedPayment) {
+                await activateBusinessLogic(updatedPayment);
+            }
 
         }
 
