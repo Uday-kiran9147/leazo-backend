@@ -36,6 +36,7 @@ console.log("DODO KEY:", process.env.DODO_API_KEY);
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+app.use('/v1/api/payments', paymentsRouter);
 // Middleware
 app.use(express.json());
 
@@ -45,7 +46,6 @@ app.use('/api/users', userRoutes);
 app.use('/api/owners', ownerRouter)
 app.use('/api', filerouter)
 
-app.use('/v1/api/payments', paymentsRouter);
 app.use('/v1/api/plans', plansRouter)
 app.use('/v1/api/auth', authRoutes);
 app.use('/v1/api/users', userRoutes);
