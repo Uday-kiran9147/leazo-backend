@@ -1,7 +1,7 @@
 import mongoose, { Schema } from "mongoose";
 
-export interface IPayment {
-  _id?: mongoose.Types.ObjectId;
+export interface IPayment extends mongoose.Document{
+  _id: mongoose.Types.ObjectId;
   userId: mongoose.Types.ObjectId;
 
   gateway: "dodo" | "juspay";
@@ -20,9 +20,11 @@ export interface IPayment {
   metadata?: Record<string, any>;
 }
 
+interface IPaymentModel extends mongoose.Model<IPayment> {}
+
 const paymentSchema = new Schema<IPayment>(
   {
-    userId: { type: Schema.Types.ObjectId, ref: "Users", required: true },
+    userId: { type: mongoose.Schema.Types.ObjectId, required: true },
 
     gateway: { type: String, required: true },
     gatewayPaymentId: { type: String },
@@ -45,4 +47,4 @@ const paymentSchema = new Schema<IPayment>(
   { timestamps: true }
 );
 
-export const Payment = mongoose.model("Payments", paymentSchema);
+export const PaymentEntity = mongoose.model<IPayment,IPaymentModel>("Payment", paymentSchema);

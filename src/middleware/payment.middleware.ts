@@ -1,10 +1,16 @@
 import { NextFunction, Request, Response } from "express";
+import { OWNER_PLAN_PRODUCTS } from "../config/ownerConfig";
 
 
 export const getCheckoutSessionMiddleware = (req:Request, res:Response, next:NextFunction) => {
     
     const { email, firstName } = req.body.user;
-    const { productId} = req.body;
+    const { planId } = req.body;
+    // Map planId to productId
+    const productId = OWNER_PLAN_PRODUCTS[planId as keyof typeof OWNER_PLAN_PRODUCTS];
+    if (!productId) {
+        return res.status(400).json({ message: "Invalid or free plan" });
+    }
     const customerId  = req.body.user.ownerId.toString();
     const missingFields = [];
     if (!productId || !customerId || !email || !firstName) {

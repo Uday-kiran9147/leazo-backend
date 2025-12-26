@@ -6,7 +6,7 @@ export class PaymentContext {
         this.strategy = strategy;
     }
 
-    async getCheckoutSession(productId:string,customerId:string,email:string,name:string): Promise<string> {
-        return await this.strategy.getCheckoutSession(productId,customerId,email,name,);
+    async getCheckoutSession(paymentId:string,productId:string,customerId:string,email:string,name:string): Promise<string> {
+        return await this.strategy.getCheckoutSession(paymentId,productId,customerId,email,name,);
     }
 }

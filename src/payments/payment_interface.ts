@@ -1,3 +1,3 @@
 export interface IPaymentStrategy {
-   getCheckoutSession(productId:string,customerId:string,email:string,name:string): Promise<string>;
+   getCheckoutSession(paymentId:string, productId:string,customerId:string,email:string,name:string): Promise<string>;
 }

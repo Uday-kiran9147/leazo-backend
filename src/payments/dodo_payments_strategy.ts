@@ -1,6 +1,5 @@
 import DodoPayments from "dodopayments";
-import { IPaymentStrategy } from "./payment_interface.js";
-import { Payment } from "./payments.models.js";
+import { IPaymentStrategy } from "./payment_interface";
 
 const dodosession = new DodoPayments({
     bearerToken: process.env.DODO_API_KEY,
@@ -8,15 +7,8 @@ const dodosession = new DodoPayments({
 })
 
 export class DodoPaymentsStrategy implements IPaymentStrategy {
-    async getCheckoutSession(productId: string, customerId: string, email: string, name: string): Promise<string> {
+    async getCheckoutSession(paymentId: string, productId: string, customerId: string, email: string, name: string): Promise<string> {
 
-        const payment = await Payment.create({
-            customerId,
-            gateway: "dodo",
-            status: "created",
-            purpose: "subscription",
-            metadata: { productId }
-        });
         const session = await dodosession.checkoutSessions.create({
             product_cart: [
                 {
@@ -28,7 +20,7 @@ export class DodoPaymentsStrategy implements IPaymentStrategy {
                 email: email,
             },
             metadata: {
-                internal_payment_id: payment._id?.toString(),
+                internal_payment_id: paymentId,
             },
             return_url: 'https://leazo.vercel.app',
         });
@@ -37,10 +29,6 @@ export class DodoPaymentsStrategy implements IPaymentStrategy {
             throw new Error('Failed to create checkout session: checkout_url is missing');
         }
 
-        await Payment.updateOne(
-            { _id: payment._id },
-            { gatewaySessionId: session.session_id }
-        );
         return session.checkout_url;
 
     }

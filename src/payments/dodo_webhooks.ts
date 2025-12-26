@@ -1,20 +1,46 @@
 import crypto from "crypto";
-import { Payment } from "./payments.models.js";
+import { PaymentEntity } from "./payments.models";
 import { Request, Response } from "express";
+import { Owner } from "../models/owner.model";
 
-const activateBusinessLogic = (payment: InstanceType<typeof Payment>) => {
-    // Implement business logic for successful payment
+
+const activateBusinessLogic = async (payment: any) => {
     console.log("Activating business logic for payment:", payment._id);
-    
-}
 
-async function rollbackBusinessLogic(payment: InstanceType<typeof Payment>) {
+    const owner = await Owner.findOne({ userId: payment.userId });
+
+    if (!owner) {
+        throw new Error("Owner not found for user");
+    }
+
+    const now = new Date();
+    const expiresAt = new Date(now);
+    expiresAt.setDate(expiresAt.getDate() + 30);
+
+    await Owner.updateOne(
+        { _id: owner._id },
+        {
+            planId: "owner_starter",
+            planActivatedAt: now,
+            planExpiresAt: expiresAt,
+            verifiedBadge: true,
+            visibility: "enhanced",
+            autoRenew: false,
+            "usage.activeListings": 0,
+            "usage.weeklyBoostsUsed": 0,
+            "usage.tenantContactsUsed": 0
+        }
+    );
+};
+
+
+async function rollbackBusinessLogic(payment: any) {
     // Implement business logic for failed payment
     console.log("Rolling back business logic for payment:", payment._id);
 }
 
 
-export const dodoWebhookHandler = async (req:Request, res:Response) => {
+export const dodoWebhookHandler = async (req: Request, res: Response) => {
     try {
         const signature = req.headers["x-signature"] as string;
         const payload = req.body;
@@ -38,7 +64,7 @@ export const dodoWebhookHandler = async (req:Request, res:Response) => {
             return res.status(200).send("No internal payment id");
         }
 
-        const payment = await Payment.findById(internalPaymentId);
+        const payment = await PaymentEntity.findById(internalPaymentId);
         if (!payment) {
             return res.status(200).send("Payment not found");
         }
@@ -47,7 +73,7 @@ export const dodoWebhookHandler = async (req:Request, res:Response) => {
             return res.status(200).send("Duplicate event");
         }
 
-        const updatedPayment = await Payment.findByIdAndUpdate(
+        const updatedPayment = await PaymentEntity.findByIdAndUpdate(
             internalPaymentId,
             {
                 status: data.status,
@@ -58,6 +84,8 @@ export const dodoWebhookHandler = async (req:Request, res:Response) => {
             { new: true }
         );
 
+        console.log("Updated payment with gateway session ID:", updatedPayment);
+        // print    
         if (data.status === "success" && updatedPayment) {
             await activateBusinessLogic(updatedPayment);
         }
