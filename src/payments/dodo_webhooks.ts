@@ -1,7 +1,7 @@
-import crypto from "crypto";
 import { PaymentEntity } from "./payments.models";
 import { Request, Response } from "express";
 import { Owner } from "../models/owner.model";
+import { dodosession } from "./dodo_payments_strategy";
 
 
 const activateBusinessLogic = async (payment: any) => {
@@ -42,56 +42,71 @@ async function rollbackBusinessLogic(payment: any) {
 
 export const dodoWebhookHandler = async (req: Request, res: Response) => {
     try {
-        const signature = req.headers["webhook-id"] as string;
-        const payload = req.body;
 
-        const expectedSignature = crypto
-            .createHmac("sha256", process.env.DODO_WEBHOOK_SECRET!)
-            .update(payload)
-            .digest("hex");
-
-        if (signature !== expectedSignature) {
-            console.warn("Invalid signature", { received: signature, expected: expectedSignature });
-            return res.status(401).send("Invalid signature");
-        }
-
-        const event = JSON.parse(payload.toString());
-
-        const data = event.data;
-
-        const internalPaymentId = data.metadata?.internal_payment_id;
-        if (!internalPaymentId) {
-            return res.status(200).send("No internal payment id");
-        }
-
-        const payment = await PaymentEntity.findById(internalPaymentId);
-        if (!payment) {
-            return res.status(200).send("Payment not found");
-        }
-
-        if (payment.status === data.status) {
-            return res.status(200).send("Duplicate event");
-        }
-
-        const updatedPayment = await PaymentEntity.findByIdAndUpdate(
-            internalPaymentId,
-            {
-                status: data.status,
-                gatewayPaymentId: data.payment_id,
-                amount: data.settlement_amount,
-                paymentMethod: data.payment_method
+        const event = dodosession.webhooks.unwrap(req.body.toString(), {
+            headers: {
+                'webhook-id': req.headers['webhook-id'] as string,
+                'webhook-signature': req.headers['webhook-signature'] as string,
+                'webhook-timestamp': req.headers['webhook-timestamp'] as string,
             },
-            { new: true }
-        );
+        });;
 
-        console.log("Updated payment with gateway session ID:", updatedPayment);
-        // print    
-        if (data.status === "success" && updatedPayment) {
+        /* 
+        payment.cancelled
+        payment.failed
+        payment.processing
+        payment.succeeded
+        */
+        if (event.type === 'payment.succeeded') {
+            const paymentId = event.data.metadata.paymentId;
+            // Use your metadata here
+            const data = event.data;
+            const updatedPayment = await PaymentEntity.findByIdAndUpdate(
+                paymentId,
+                {
+                    status: data.status,
+                    gatewayPaymentId: data.payment_id,
+                    amount: data.settlement_amount,
+                    paymentMethod: data.payment_method
+                },
+                { new: true }
+            );
             await activateBusinessLogic(updatedPayment);
+            console.log("Updated payment with gateway session ID:", updatedPayment);
+
         }
 
-        if (data.status === "failed") {
-            await rollbackBusinessLogic(payment);
+        if (event.type === 'payment.failed' || event.type === 'payment.cancelled') {
+            const paymentId = event.data.metadata.paymentId;
+            // Use your metadata here
+            const data = event.data;
+            const updatedPayment = await PaymentEntity.findByIdAndUpdate(
+                paymentId,
+                {
+                    status: data.status,
+                    gatewayPaymentId: data.payment_id,
+                    amount: data.settlement_amount,
+                    paymentMethod: data.payment_method
+                },
+                { new: true }
+            );
+            console.log("Updated payment with gateway session ID:", updatedPayment);
+        }
+        if (event.type === 'payment.processing') {
+            const paymentId = event.data.metadata.paymentId;
+            // Use your metadata here
+            const data = event.data;
+            const updatedPayment = await PaymentEntity.findByIdAndUpdate(
+                paymentId,
+                {
+                    status: data.status,
+                    gatewayPaymentId: data.payment_id,
+                    amount: data.settlement_amount,
+                    paymentMethod: data.payment_method
+                },
+                { new: true }
+            );
+            console.log("Updated payment with gateway session ID:", updatedPayment);
         }
 
         return res.status(200).send("OK");

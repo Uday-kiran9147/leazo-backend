@@ -1,9 +1,10 @@
 import DodoPayments from "dodopayments";
 import { IPaymentStrategy } from "./payment_interface";
 
-const dodosession = new DodoPayments({
+export const dodosession = new DodoPayments({
     bearerToken: process.env.DODO_API_KEY,
-    environment: 'test_mode'
+    webhookKey: process.env.DODO_WEBHOOK_SECRET,
+    environment: 'test_mode' // or 'live_mode'
 })
 
 export class DodoPaymentsStrategy implements IPaymentStrategy {
