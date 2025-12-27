@@ -1,14 +1,15 @@
 export const TENANT_PLAN_RULES = {
   tenant_free: {
-    ownerContacts: 3,
+    price:0,
+    ownerContacts: 0,
     filters: "basic",
     earlyAccess: false,
     verifiedOnly: false,
     instantChat: false,
-    adFree: false
+    adFree: false,
   },
   tenant_smart_finder: {
-    ownerContacts: -1,
+    ownerContacts: 3,
     filters: "advanced",
     earlyAccess: true,
     verifiedOnly: false,
@@ -16,6 +17,7 @@ export const TENANT_PLAN_RULES = {
     adFree: false
   },
   tenant_premium: {
+    price:99,
     ownerContacts: -1,
     filters: "advanced",
     earlyAccess: true,

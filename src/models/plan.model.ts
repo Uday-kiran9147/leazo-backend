@@ -12,7 +12,7 @@ export interface IPlan {
   userType: UserType;
   price: number;
   durationDays?: number | null;
-  features: string[];
+  features: any;
   isActive: boolean;
   createdAt?: Date;
   updatedAt?: Date;
@@ -32,7 +32,7 @@ const planSchema = new Schema<IPlan>(
     },
     price: { type: Number, required: true },
     durationDays: { type: Number, default: null },
-    features: { type: [String], required: true },
+    features: { type: Schema.Types.Mixed, required: true },
     isActive: { type: Boolean, default: true },
   },
   { timestamps: true, _id: false }

@@ -5,7 +5,7 @@ const OWNER_PLAN_PRODUCTS= {
   owner_ultra: "pdt_0NUuPis72HWaLFhva4Jpi",
 } as const;
 
-const OWNER_PLAN_RULES = {
+export const OWNER_PLAN_RULES = {
   owner_free: {
     price:0,
     activeListings: 1,
