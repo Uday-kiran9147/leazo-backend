@@ -7,6 +7,9 @@ import { handleError } from '../utils/api_error';
 import { RedisClientManager } from '../cache/RedisClientManager';
 import { Notification } from '../models/notification.model';
 import { Feedback } from '../models/feedback.model';
+import { Owner } from '../models/owner.model';
+import { getTenantPlanRules } from '../config/tenantConfig';
+import { getPlanRules } from '../config/ownerConfig';
 
 
 
@@ -38,6 +41,7 @@ export const searchPortions = async (req: Request, res: Response) => {
 
   try {
     const portions = await Portion.find(mongoQuery)
+      .select("-contact")
       .limit(parseInt(limit as string, 10))
       .sort({ createdAt: -1 });
 
@@ -115,7 +119,7 @@ export const getAllPortions = async (req: Request, res: Response) => {
       
       return res.status(apiResponse.status).json(apiResponse);
     }
-    const portions = await Portion.find({approvalStatus:ApprovalStatus.Approved,isActive:true, isDeleted:false});
+    const portions = await Portion.find({ approvalStatus: ApprovalStatus.Approved, isActive: true, isDeleted: false }).select("-contact");
     const responseData = { count: portions.length, portions };
 
     // Cache result with expiration time
@@ -382,19 +386,67 @@ export const updateUser = async (req: Request, res: Response) => {
     return res.status(apiResponse.status).json(apiResponse);
   }
 
-  /**
-   * Sends a push notification to the user when their profile is updated.
-   * 
-   * This function checks if the user has a device token and, if so, sends a push notification
-   * indicating that their profile has been successfully updated.
-   * 
-   * @async
-   * @function sendProfileUpdateNotification
-   * @returns {Promise<void>} A promise that resolves when the notification has been sent.
-   */
   async function sendProfileUpdateNotification(): Promise<void> {
     if (user.deviceToken) {
       await sendPushNotification(user.deviceToken, "Profile Updated 🎉", "Great job! Your profile has been successfully updated. Everything’s looking good!");
     }
+  }
+};
+
+export const revealPortionContact = async (req: Request, res: Response) => {
+  const { portionId } = req.body;
+  const user = req.body.user;
+
+  if (!portionId) {
+    return res.status(400).json(new ApiResponse(400, "Portion ID is required", null));
+  }
+
+  try {
+    const portion = await Portion.findById(portionId);
+    if (!portion) {
+      return res.status(404).json(new ApiResponse(404, "Portion not found", null));
+    }
+
+    const tenant = await User.findById(user._id);
+    if (!tenant) {
+      return res.status(404).json(new ApiResponse(404, "Tenant not found", null));
+    }
+
+    const owner = await Owner.findById(portion.ownerId);
+    if (!owner) {
+      return res.status(404).json(new ApiResponse(404, "Owner not found", null));
+    }
+
+    // Check Tenant Limits
+    const tenantPlanId = (tenant.planId || "tenant_free") as any;
+    const tenantPlan = getTenantPlanRules(tenantPlanId);
+    const tenantUsed = tenant.usage?.ownerContactsUsed || 0;
+
+    if (tenantPlan.ownerContacts !== -1 && tenantUsed >= tenantPlan.ownerContacts) {
+      return res.status(403).json(new ApiResponse(403, "Tenant contact limit reached. Upgrade your plan.", null));
+    }
+
+    // Check Owner Limits
+    const ownerPlanId = (owner.planId || "owner_free") as any;
+    const ownerPlan = getPlanRules(ownerPlanId);
+    const ownerUsed = owner.usage?.tenantContactsUsed || 0;
+
+    if (ownerPlan.tenantContacts !== -1 && ownerUsed >= ownerPlan.tenantContacts) {
+      return res.status(403).json(new ApiResponse(403, "This owner has reached their tenant contact limit.", null));
+    }
+
+    // Increment Usage
+    await User.updateOne({ _id: tenant._id }, { $inc: { "usage.ownerContactsUsed": 1 } });
+    await Owner.updateOne({ _id: owner._id }, { $inc: { "usage.tenantContactsUsed": 1 } });
+
+    // Invalidate caches
+    await RedisClientManager.delete(`user:${tenant._id}`);
+    await RedisClientManager.delete(`owner:${owner._id}`);
+
+    return res.status(200).json(new ApiResponse(200, "Contact revealed successfully", portion.contact));
+
+  } catch (error) {
+    const apiResponse: ApiResponse = handleError(error, req, res);
+    return res.status(apiResponse.status).json(apiResponse);
   }
 };

@@ -40,8 +40,17 @@ export async function sendPushNotification(token: string, title: string, body: s
   try {
     const response = await admin.messaging().send(message);
     console.log('Successfully sent notification:');
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error sending message:', error);
+    if (error.errorInfo?.code === 'messaging/registration-token-not-registered') {
+      console.log(`Clearing invalid FCM token: ${token}`);
+      try {
+        const mongoose = await import('mongoose');
+        await mongoose.model('User').updateOne({ deviceToken: token }, { $unset: { deviceToken: "" } });
+      } catch (dbError) {
+        console.error('Failed to clear invalid FCM token from database:', dbError);
+      }
+    }
   }
 }
 

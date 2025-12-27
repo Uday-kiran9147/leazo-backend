@@ -274,12 +274,23 @@ export const dodoWebhookHandler = async (req: Request, res: Response) => {
                     }
                     break;
                 case 'subscription.on_hold':
-                    if (owner) {
+                    if (planId?.startsWith("owner_") && owner) {
                         await Owner.findByIdAndUpdate(owner._id, { autoRenew: false });
+                    } else if (planId?.startsWith("tenant_") && internalPaymentId) {
+                        const payment = await PaymentEntity.findById(internalPaymentId);
+                        if (payment) {
+                            console.log(`Subscription on hold for tenant: ${payment.userId}`);
+                            await User.findByIdAndUpdate(payment.userId, { autoRenew: false });
+                        }
                     }
                     break;
                 case 'subscription.failed':
-                    console.error(`Subscription failed for owner: ${owner?._id}, subscription: ${subscriptionId}`);
+                    if (planId?.startsWith("owner_")) {
+                        console.error(`Subscription failed for owner: ${owner?._id}, subscription: ${subscriptionId}`);
+                    } else if (planId?.startsWith("tenant_") && internalPaymentId) {
+                        const payment = await PaymentEntity.findById(internalPaymentId);
+                        console.error(`Subscription failed for tenant: ${payment?.userId}, subscription: ${subscriptionId}`);
+                    }
                     break;
                 case 'subscription.renewed':
                     if (planId?.startsWith("owner_") && owner) {
