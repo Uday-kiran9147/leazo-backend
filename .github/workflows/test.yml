@@ -33,3 +33,5 @@ jobs:
         DB_URL: mongodb://localhost:27017/test
         REDIS_URL: https://dummy-url.upstash.io
         REDIS_SECRET: dummypw
+        DODO_API_KEY: test_api_key
+        DODO_WEBHOOK_SECRET: test_webhook_secret
