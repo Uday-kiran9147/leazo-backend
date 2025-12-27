@@ -115,7 +115,7 @@ export const getAllPortions = async (req: Request, res: Response) => {
       
       return res.status(apiResponse.status).json(apiResponse);
     }
-    const portions = await Portion.find({approvalStatus:ApprovalStatus.Approved, isDeleted:false});
+    const portions = await Portion.find({approvalStatus:ApprovalStatus.Approved,isActive:true, isDeleted:false});
     const responseData = { count: portions.length, portions };
 
     // Cache result with expiration time
