@@ -5,7 +5,7 @@ import { OwnerPlanId } from "../config/ownerConfig";
 export const dodosession = new DodoPayments({
     bearerToken: process.env.DODO_API_KEY,
     webhookKey: process.env.DODO_WEBHOOK_SECRET,
-    environment: 'test_mode' // or 'live_mode'
+    environment: (process.env.DODO_PAYMENTS_ENVIRONMENT as 'test_mode' | 'live_mode') || 'test_mode'
 })
 
 export class DodoPaymentsStrategy implements IPaymentStrategy {
@@ -32,7 +32,7 @@ export class DodoPaymentsStrategy implements IPaymentStrategy {
                 productId,
                 planId                
             },
-            return_url: 'https://leazo.vercel.app',
+            return_url: process.env.DODO_RETURN_URL || 'https://leazo.vercel.app',
         });
 
         if (!session.checkout_url) {
