@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { createOwner, deleteOwner, getOwnerById,deletePortion, getOwners, updateOwner,deleteBuilding, createBuilding, updateBuilding, getOwnerBuildings, createPortion, getPortionsByBuildingId, updatePortion } from "../controller/owner.controller";
 import { auth } from "../middleware/auth.middleware";
+import { checkPlanLimit } from "../middleware/plan_limit.middleware";
 
 const ownerRouter = Router()
 
@@ -17,7 +18,7 @@ ownerRouter.delete('/delete-building', auth, deleteBuilding) // DONE
 ownerRouter.get('/buildings/me', auth, getOwnerBuildings) // DONE
 
 // Portions
-ownerRouter.post('/buildings/create-portion', auth, createPortion) // DONE
+ownerRouter.post('/buildings/create-portion', auth, checkPlanLimit, createPortion) // DONE
 ownerRouter.patch('/buildings/update-portion', auth, updatePortion) // DONE
 ownerRouter.delete('/buildings/delete-portion', auth, deletePortion) 
 ownerRouter.get('/buildings/get-portions', auth, getPortionsByBuildingId) // DONE

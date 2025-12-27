@@ -202,6 +202,25 @@ export const dodoWebhookHandler = async (req: Request, res: Response) => {
                         await activateBusinessLogic(null, owner._id.toString(), planId);
                     }
                     break;
+                case 'subscription.cancelled':
+                    if (owner) {
+                        console.log(`Subscription cancelled for owner: ${owner._id}`);
+                        await Owner.findByIdAndUpdate(owner._id, {
+                            autoRenew: false,
+                            // Optionally we could reset planId to owner_free here if we want immediate downgrade
+                            // planId: 'owner_free' 
+                        });
+                        // For cancellation, we might want to notify the user that their plan will not renew
+                        const user = await User.findById(owner.userId);
+                        if (user?.deviceToken) {
+                            await sendPushNotification(
+                                user.deviceToken,
+                                "Subscription Cancelled",
+                                "Your premium subscription has been cancelled and will not renew. You will retain access until the end of your current billing period."
+                            );
+                        }
+                    }
+                    break;
             }
         }
 
