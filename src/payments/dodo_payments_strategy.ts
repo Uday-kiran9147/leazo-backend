@@ -1,5 +1,6 @@
 import DodoPayments from "dodopayments";
 import { IPaymentStrategy } from "./payment_interface";
+import { OwnerPlanId } from "../config/ownerConfig";
 
 export const dodosession = new DodoPayments({
     bearerToken: process.env.DODO_API_KEY,
@@ -8,12 +9,18 @@ export const dodosession = new DodoPayments({
 })
 
 export class DodoPaymentsStrategy implements IPaymentStrategy {
-    async getCheckoutSession(paymentId: string, productId: string, customerId: string, email: string, name: string): Promise<string> {
 
+    
+    async getCheckoutSession(paymentId: string, planId: string, customerId: string, email: string, name: string): Promise<string> {
+
+        const productId = OwnerPlanId[planId];
+        if (!productId) {
+            throw new Error(`Invalid planId: ${planId}`);
+        }
         const session = await dodosession.checkoutSessions.create({
             product_cart: [
                 {
-                    product_id: productId, quantity: 1
+                    product_id: productId , quantity: 1
                 }
             ],
             customer: {
@@ -22,6 +29,8 @@ export class DodoPaymentsStrategy implements IPaymentStrategy {
             },
             metadata: {
                 internal_payment_id: paymentId,
+                productId,
+                planId                
             },
             return_url: 'https://leazo.vercel.app',
         });

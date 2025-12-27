@@ -16,7 +16,7 @@ export interface IPayment extends mongoose.Document{
 
   status: string;
 
-  purpose: string;
+  planId: string;
   metadata?: Record<string, any>;
 }
 
@@ -38,10 +38,10 @@ const paymentSchema = new Schema<IPayment>(
 
     status: {
       type: String,
-      default: "created"
+      default: "initiated",
     },
 
-    purpose: { type: String, required: true },
+    planId: { type: String, required: true },
     metadata: { type: Schema.Types.Mixed }
   },
   { timestamps: true }

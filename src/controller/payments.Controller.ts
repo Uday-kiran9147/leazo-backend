@@ -10,23 +10,23 @@ const dodoPaymentsStrategy: IPaymentStrategy = new DodoPaymentsStrategy();
 const paymentContext = new PaymentContext(dodoPaymentsStrategy);
 
 export const getCheckoutSession = async (req: Request, res: Response) => {
-    const { productId, customerId, email, name } = req.body.paymentSessionData;
-    log("Creating checkout session for:", { productId, customerId, email, name });
+    const { planId, customerId, email, name } = req.body.paymentSessionData;
+    log("Creating checkout session for:", { planId, customerId, email, name });
 
 
     const payment = await PaymentEntity.create({
         userId: customerId,
         gateway: "dodo",
-        status: "created",
-        purpose: "owner_plan",
+        status: "initiated",
+        purpose: planId,
         metadata: {
-            productId,
+            planId,
         }
     });
 
     console.log("Created payment record:", payment);
     const paymentId = payment._id.toString();
-    paymentContext.getCheckoutSession(paymentId, productId, customerId, email, name)
+    paymentContext.getCheckoutSession(paymentId, planId, customerId, email, name)
         .then((checkout_url: string) => {
             res.status(200).json({ data: checkout_url });
         })
