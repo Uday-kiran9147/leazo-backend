@@ -5,13 +5,22 @@ import { dodosession } from "./dodo_payments_strategy";
 import { Portion } from "../models/portion.model";
 import { getPlanRules } from "../config/ownerConfig";
 import { RedisClientManager } from "../cache/RedisClientManager";
+import { sendPushNotification } from "../utils/push_notifications";
+import { User } from "../models/user.model";
 
 
-const activateBusinessLogic = async (payment: IPayment) => {
-    console.log("Activating business logic for payment");
-    console.log("Activating business logic for payment:", payment._id);
+const activateBusinessLogic = async (payment: IPayment | null, ownerId?: string, planIdStr?: string) => {
+    console.log("Activating business logic");
+    if (payment) {
+        console.log("Activating business logic for payment:", payment._id);
+    }
 
-    const owner = await Owner.findOne({ _id: payment.userId });
+    let owner;
+    if (payment) {
+        owner = await Owner.findOne({ _id: payment.userId });
+    } else if (ownerId) {
+        owner = await Owner.findById(ownerId);
+    }
 
     if (!owner) {
         throw new Error("Owner not found for user");
@@ -20,9 +29,8 @@ const activateBusinessLogic = async (payment: IPayment) => {
     const now = new Date();
     const expiresAt = new Date(now);
     expiresAt.setDate(expiresAt.getDate() + 30);
-    // update portions to set isActive to true only 3 from date updated and rest to false
 
-    const planId = payment.planId as "owner_free" | "owner_starter" | "owner_pro" | "owner_ultra";
+    const planId = (payment ? payment.planId : planIdStr) as "owner_free" | "owner_starter" | "owner_pro" | "owner_ultra";
     const plan = getPlanRules(planId);
     const ownerPortions = await Portion.find({ ownerId: owner._id }).sort({ updatedAt: -1 });
     const portions = ownerPortions;
@@ -30,8 +38,6 @@ const activateBusinessLogic = async (payment: IPayment) => {
     const bulkOps = [];
     let activeCount = 0;
     const buildingIds = new Set<string>();
-
-    // Determine which portions should be active based on the new plan
 
     for (const portion of portions) {
         const shouldBeActive = plan.activeListings === -1 || activeCount < plan.activeListings;
@@ -52,7 +58,6 @@ const activateBusinessLogic = async (payment: IPayment) => {
         await Portion.bulkWrite(bulkOps);
     }
 
-    // Invalidate cache for affected portions and buildings
     const redis = RedisClientManager.getInstance();
     if (redis) {
         const pipeline = redis.pipeline();
@@ -63,27 +68,16 @@ const activateBusinessLogic = async (payment: IPayment) => {
         await pipeline.exec();
     }
 
-    // Invalidate building portions cache
     for (const buildingId of buildingIds) {
-
-        /* This clears:
-        building-portions:123
-        building-portions:123:p1:l10
-        building-portions:123:p2:l10
-        any future variants 
-        */
         console.log("Invalidating cache for building portions:", buildingId);
-        await RedisClientManager.deletePattern(
-            `building-portions:${buildingId}:*`
-        );
+        await RedisClientManager.deletePattern(`building-portions:${buildingId}:*`);
     }
 
     console.log("Updating owner plan details");
-
     await Owner.updateOne(
         { _id: owner._id },
         {
-            planId: payment.planId,
+            planId: planId,
             planActivatedAt: now,
             planExpiresAt: expiresAt,
             verifiedBadge: plan.verifiedBadge,
@@ -95,39 +89,30 @@ const activateBusinessLogic = async (payment: IPayment) => {
         }
     );
 
+    // const user = await User.findById(owner.userId);
+    // if(user?.deviceToken){
+    //     // send informative notification to user with title and body plan related 
+    // }
 };
-
-
-async function rollbackBusinessLogic(payment: any) {
-    // Implement business logic for failed payment
-    console.log("Rolling back business logic for payment:", payment._id);
-}
-
 
 export const dodoWebhookHandler = async (req: Request, res: Response) => {
     try {
-
         const event = dodosession.webhooks.unwrap(req.body.toString(), {
             headers: {
                 'webhook-id': req.headers['webhook-id'] as string,
                 'webhook-signature': req.headers['webhook-signature'] as string,
                 'webhook-timestamp': req.headers['webhook-timestamp'] as string,
             },
-        });;
+        });
 
-        /* 
-        payment.cancelled
-        payment.failed
-        payment.processing
-        payment.succeeded
-        */
-        if (event.type === 'payment.processing' || event.type === 'payment.succeeded' || event.type === 'payment.failed' || event.type === 'payment.cancelled') {
-            const paymentId = event.data.metadata.internal_payment_id;
-            const current_type = event.type;
+        console.log(`Received Dodo webhook event type: ${event.type}`);
 
-            console.log(`Received Dodo webhook for payment ID: ${paymentId} with event type: ${current_type}`);
-            // Use your metadata here
-            const data = event.data;
+        if (event.type.startsWith('payment.')) {
+            const data = event.data as any; // Narrowing types for Dodo events
+            const paymentId = data.metadata?.internal_payment_id;
+
+            console.log(`Received Dodo webhook for payment ID: ${paymentId} with event type: ${event.type}`);
+
             const updatedPayment = await PaymentEntity.findByIdAndUpdate(
                 paymentId,
                 {
@@ -140,10 +125,55 @@ export const dodoWebhookHandler = async (req: Request, res: Response) => {
             );
 
             console.log("Updated payment with gateway session ID:", updatedPayment);
-            if (current_type === "payment.succeeded" && updatedPayment) {
+            if (event.type === "payment.succeeded" && updatedPayment) {
                 await activateBusinessLogic(updatedPayment);
             }
+        }
+        else if (event.type.startsWith('subscription.')) {
+            const data = event.data as any; // Narrowing types for Dodo events
+            const subscriptionId = data.subscription_id;
+            const internalPaymentId = data.metadata?.internal_payment_id;
+            const planId = data.metadata?.planId;
 
+            let owner;
+            if (internalPaymentId) {
+                const payment = await PaymentEntity.findById(internalPaymentId);
+                if (payment) {
+                    owner = await Owner.findById(payment.userId);
+                    await PaymentEntity.findByIdAndUpdate(internalPaymentId, { gatewaySubscriptionId: subscriptionId });
+                }
+            }
+
+            if (!owner && data.customer?.customer_id) {
+                // Fallback attempt to find owner by customer_id if not found via payment
+            }
+
+            switch (event.type) {
+                case 'subscription.active':
+                    if (owner) {
+                        await Owner.findByIdAndUpdate(owner._id, { subscriptionId: subscriptionId });
+                        await activateBusinessLogic(null, owner._id.toString(), planId);
+                    }
+                    break;
+                case 'subscription.updated':
+                    if (owner) {
+                        await activateBusinessLogic(null, owner._id.toString(), planId);
+                    }
+                    break;
+                case 'subscription.on_hold':
+                    if (owner) {
+                        await Owner.findByIdAndUpdate(owner._id, { autoRenew: false });
+                    }
+                    break;
+                case 'subscription.failed':
+                    console.error(`Subscription failed for owner: ${owner?._id}, subscription: ${subscriptionId}`);
+                    break;
+                case 'subscription.renewed':
+                    if (owner) {
+                        await activateBusinessLogic(null, owner._id.toString(), planId);
+                    }
+                    break;
+            }
         }
 
         return res.status(200).send("OK");

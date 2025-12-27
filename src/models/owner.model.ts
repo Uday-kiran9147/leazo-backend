@@ -13,6 +13,7 @@ export interface IOwner extends mongoose.Document {
   ownerName: string;
   contactNumber: IContact;
   email: string;
+  subscriptionId?: string;
 
   planId: "owner_free" | "owner_starter" | "owner_pro" | "owner_ultra";
   planActivatedAt: Date;
@@ -47,6 +48,7 @@ const ownerSchema = new mongoose.Schema<IOwner>(
     ownerName: { type: String, required: true, trim: true },
     contactNumber: { type: contactSchema, required: true },
     email: { type: String, required: true, trim: true },
+    subscriptionId: { type: String },
 
     planId: {
       type: String,

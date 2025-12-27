@@ -7,6 +7,7 @@ export interface IPayment extends mongoose.Document{
   gateway: "dodo" | "juspay";
   gatewayPaymentId?: string;
   gatewaySessionId?: string;
+  gatewaySubscriptionId?: string;
 
   settlementAmount?: number;
   totalAmount?: number;
@@ -29,6 +30,7 @@ const paymentSchema = new Schema<IPayment>(
     gateway: { type: String, required: true },
     gatewayPaymentId: { type: String },
     gatewaySessionId: { type: String },
+    gatewaySubscriptionId: { type: String },
 
     settlementAmount: { type: Number },
     totalAmount: { type: Number },
