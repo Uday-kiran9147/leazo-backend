@@ -18,7 +18,7 @@ export const getCheckoutSession = async (req: Request, res: Response) => {
         userId: customerId,
         gateway: "dodo",
         status: "initiated",
-        purpose: planId,
+        planId: planId,
         metadata: {
             planId,
         }
