@@ -7,7 +7,74 @@ import { getPlanRules } from "../config/ownerConfig";
 import { RedisClientManager } from "../cache/RedisClientManager";
 import { sendPushNotification } from "../utils/push_notifications";
 import { User } from "../models/user.model";
+import { getTenantPlanRules } from "../config/tenantConfig";
 
+
+const activateTenantBusinessLogic = async (payment: IPayment | null, userId?: string, planIdStr?: string) => {
+    console.log("Activating tenant business logic");
+
+    let user;
+    if (payment) {
+        user = await User.findById(payment.userId);
+    } else if (userId) {
+        user = await User.findById(userId);
+    }
+
+    if (!user) {
+        throw new Error("User not found for tenant activation");
+    }
+
+    const now = new Date();
+    const expiresAt = new Date(now);
+    expiresAt.setDate(expiresAt.getDate() + 7);
+
+    const planId = (payment ? payment.planId : planIdStr) as "tenant_free" | "tenant_smart_finder" | "tenant_premium";
+    const plan = getTenantPlanRules(planId);
+
+    console.log("Updating tenant plan details for user:", user._id);
+    await User.updateOne(
+        { _id: user._id },
+        {
+            planId: planId,
+            planActivatedAt: now,
+            planExpiresAt: expiresAt,
+            autoRenew: true, // Typically true for subscriptions
+            "usage.ownerContactsUsed": 0 // Reset usage on plan activation/renewal
+        }
+    );
+
+    // Invalidate user cache
+    await RedisClientManager.delete(`user:${user._id}`);
+    await RedisClientManager.delete("users:all");
+
+    await sendTenantNotification(user._id.toString(), planId);
+};
+
+const sendTenantNotification = async (userId: string, planId: string) => {
+    const user = await User.findById(userId);
+    if (user && user.deviceToken) {
+        console.log("Sending tenant notification to user:", user._id);
+        let title = "Tenant Plan Activated";
+        let body = "Your tenant subscription has been successfully updated.";
+
+        switch (planId) {
+            case "tenant_free":
+                title = "Free Plan Active";
+                body = "Your account is now on the Free tenant plan.";
+                break;
+            case "tenant_smart_finder":
+                title = "Smart Finder Active! 🔍";
+                body = "Your Smart Finder plan is now active. Start finding your perfect home!";
+                break;
+            case "tenant_premium":
+                title = "Premium Plan Active! ✨";
+                body = "You're now on the Premium tenant plan! Enjoy all exclusive features.";
+                break;
+        }
+
+        await sendPushNotification(user.deviceToken, title, body);
+    }
+};
 
 const activateBusinessLogic = async (payment: IPayment | null, ownerId?: string, planIdStr?: string) => {
     console.log("Activating business logic");
@@ -155,7 +222,11 @@ export const dodoWebhookHandler = async (req: Request, res: Response) => {
 
             console.log("Updated payment with gateway session ID:", updatedPayment);
             if (event.type === "payment.succeeded" && updatedPayment) {
-                await activateBusinessLogic(updatedPayment);
+                if (updatedPayment.planId.startsWith("owner_")) {
+                    await activateBusinessLogic(updatedPayment);
+                } else if (updatedPayment.planId.startsWith("tenant_")) {
+                    await activateTenantBusinessLogic(updatedPayment);
+                }
             }
         }
         else if (event.type.startsWith('subscription.')) {
@@ -179,14 +250,27 @@ export const dodoWebhookHandler = async (req: Request, res: Response) => {
 
             switch (event.type) {
                 case 'subscription.active':
-                    if (owner) {
+                    if (planId?.startsWith("owner_") && owner) {
                         await Owner.findByIdAndUpdate(owner._id, { subscriptionId: subscriptionId });
                         await activateBusinessLogic(null, owner._id.toString(), planId);
+                    } else if (planId?.startsWith("tenant_") && internalPaymentId) {
+                        const payment = await PaymentEntity.findById(internalPaymentId);
+                        if (payment) {
+                            console.log(`Subscription active for tenant: ${payment.userId}, subscription: ${subscriptionId}`);
+                            await User.findByIdAndUpdate(payment.userId, { subscriptionId: subscriptionId });
+                            await activateTenantBusinessLogic(null, payment.userId.toString(), planId);
+                        }
                     }
                     break;
                 case 'subscription.updated':
-                    if (owner) {
+                    if (planId?.startsWith("owner_") && owner) {
                         await activateBusinessLogic(null, owner._id.toString(), planId);
+                    } else if (planId?.startsWith("tenant_") && internalPaymentId) {
+                        const payment = await PaymentEntity.findById(internalPaymentId);
+                        if (payment) {
+                            console.log(`Subscription updated for tenant: ${payment.userId}, plan: ${planId}`);
+                            await activateTenantBusinessLogic(null, payment.userId.toString(), planId);
+                        }
                     }
                     break;
                 case 'subscription.on_hold':
@@ -198,18 +282,30 @@ export const dodoWebhookHandler = async (req: Request, res: Response) => {
                     console.error(`Subscription failed for owner: ${owner?._id}, subscription: ${subscriptionId}`);
                     break;
                 case 'subscription.renewed':
-                    if (owner) {
+                    if (planId?.startsWith("owner_") && owner) {
                         await activateBusinessLogic(null, owner._id.toString(), planId);
+                    } else if (planId?.startsWith("tenant_") && internalPaymentId) {
+                        const payment = await PaymentEntity.findById(internalPaymentId);
+                        if (payment) {
+                            console.log(`Subscription renewed for tenant: ${payment.userId}, plan: ${planId}`);
+                            await activateTenantBusinessLogic(null, payment.userId.toString(), planId);
+                        }
                     }
                     break;
                 case 'subscription.plan_changed':
-                    if (owner) {
+                    if (planId?.startsWith("owner_") && owner) {
                         console.log(`Plan changed for owner: ${owner._id} to ${planId}`);
                         await activateBusinessLogic(null, owner._id.toString(), planId);
+                    } else if (planId?.startsWith("tenant_") && internalPaymentId) {
+                        const payment = await PaymentEntity.findById(internalPaymentId);
+                        if (payment) {
+                            console.log(`Plan changed for tenant: ${payment.userId} to ${planId}`);
+                            await activateTenantBusinessLogic(null, payment.userId.toString(), planId);
+                        }
                     }
                     break;
                 case 'subscription.expired':
-                    if (owner) {
+                    if (planId?.startsWith("owner_") && owner) {
                         console.log(`Subscription expired for owner: ${owner._id}`);
                         // Force downgrade to free plan immediately
                         await activateBusinessLogic(null, owner._id.toString(), "owner_free");
@@ -222,17 +318,29 @@ export const dodoWebhookHandler = async (req: Request, res: Response) => {
                                 "Your premium subscription has expired. Your account has been moved to the Free plan and extra listings have been deactivated."
                             );
                         }
+                    } else if (planId?.startsWith("tenant_") && internalPaymentId) {
+                        const payment = await PaymentEntity.findById(internalPaymentId);
+                        if (payment) {
+                            console.log(`Subscription expired for tenant: ${payment.userId}`);
+                            await activateTenantBusinessLogic(null, payment.userId.toString(), "tenant_free");
+
+                            const user = await User.findById(payment.userId);
+                            if (user?.deviceToken) {
+                                await sendPushNotification(
+                                    user.deviceToken,
+                                    "Subscription Expired",
+                                    "Your premium tenant subscription has expired. Your account has been moved to the Free plan."
+                                );
+                            }
+                        }
                     }
                     break;
                 case 'subscription.cancelled':
-                    if (owner) {
+                    if (planId?.startsWith("owner_") && owner) {
                         console.log(`Subscription cancelled for owner: ${owner._id}`);
                         await Owner.findByIdAndUpdate(owner._id, {
                             autoRenew: false,
-                            // Optionally we could reset planId to owner_free here if we want immediate downgrade
-                            // planId: 'owner_free' 
                         });
-                        // For cancellation, we might want to notify the user that their plan will not renew
                         const user = await User.findById(owner.userId);
                         if (user?.deviceToken) {
                             await sendPushNotification(
@@ -240,6 +348,22 @@ export const dodoWebhookHandler = async (req: Request, res: Response) => {
                                 "Subscription Cancelled",
                                 "Your premium subscription has been cancelled and will not renew. You will retain access until the end of your current billing period."
                             );
+                        }
+                    } else if (planId?.startsWith("tenant_") && internalPaymentId) {
+                        const payment = await PaymentEntity.findById(internalPaymentId);
+                        if (payment) {
+                            console.log(`Subscription cancelled for tenant: ${payment.userId}`);
+                            await User.findByIdAndUpdate(payment.userId, {
+                                autoRenew: false,
+                            });
+                            const user = await User.findById(payment.userId);
+                            if (user?.deviceToken) {
+                                await sendPushNotification(
+                                    user.deviceToken,
+                                    "Subscription Cancelled",
+                                    "Your premium tenant subscription has been cancelled and will not renew."
+                                );
+                            }
                         }
                     }
                     break;
@@ -264,7 +388,11 @@ export const dodoWebhookHandler = async (req: Request, res: Response) => {
                 if (event.type === 'refund.succeeded') {
                     console.log(`Refund succeeded for payment: ${payment._id}. Reverting business logic.`);
                     // Force downgrade to free plan as the payment was refunded
-                    await activateBusinessLogic(null, payment.userId.toString(), "owner_free");
+                    if (payment.planId.startsWith("owner_")) {
+                        await activateBusinessLogic(null, payment.userId.toString(), "owner_free");
+                    } else if (payment.planId.startsWith("tenant_")) {
+                        await activateTenantBusinessLogic(null, payment.userId.toString(), "tenant_free");
+                    }
 
                     const user = await User.findById(payment.userId);
                     if (user?.deviceToken) {

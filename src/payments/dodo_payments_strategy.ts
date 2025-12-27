@@ -1,6 +1,7 @@
 import DodoPayments from "dodopayments";
 import { IPaymentStrategy } from "./payment_interface";
 import { OwnerPlanId } from "../config/ownerConfig";
+import { TenantPlanId } from "../config/tenantConfig";
 
 export const dodosession = new DodoPayments({
     bearerToken: process.env.DODO_API_KEY,
@@ -13,7 +14,13 @@ export class DodoPaymentsStrategy implements IPaymentStrategy {
     
     async getCheckoutSession(paymentId: string, planId: string, customerId: string, email: string, name: string): Promise<string> {
 
-        const productId = OwnerPlanId[planId];
+        let productId: string | null | undefined;
+        if (planId.startsWith("owner_")) {
+            productId = OwnerPlanId[planId];
+        } else if (planId.startsWith("tenant_")) {
+            productId = TenantPlanId[planId];
+        }
+
         if (!productId) {
             throw new Error(`Invalid planId: ${planId}`);
         }

@@ -30,3 +30,9 @@ export const TENANT_PLAN_RULES = {
 export const getTenantPlanRules = (planId: keyof typeof TENANT_PLAN_RULES) => {
   return TENANT_PLAN_RULES[planId];
 }
+
+export const TenantPlanId: Record<string, string | null> = {
+  tenant_free: null,
+  tenant_smart_finder: "pdt_0NV0cD7tvCxlSvdqLSsX8",
+  tenant_premium: "pdt_0NV0cQXlAWmbA49fBNUNO",
+};

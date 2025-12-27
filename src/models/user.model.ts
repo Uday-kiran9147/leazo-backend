@@ -30,6 +30,16 @@ interface IUser extends Document, IUserMethods {
   deviceToken?: string;
   role?: string;
   isOwner: boolean;
+
+  // Subscription fields (User/Tenant)
+  planId: "tenant_free" | "tenant_smart_finder" | "tenant_premium";
+  subscriptionId?: string;
+  planActivatedAt?: Date;
+  planExpiresAt?: Date;
+  usage: {
+    ownerContactsUsed: number;
+  };
+  autoRenew: boolean;
 }
 
 // Define the static methods interface for the model
@@ -62,6 +72,20 @@ const userSchema = new Schema<IUser>({
   deviceToken: { type: String },
   isOwner: { type: Boolean, default: false },
   role: { type: String, default: "User" },
+
+  // Subscription fields
+  planId: {
+    type: String,
+    enum: ["tenant_free", "tenant_smart_finder", "tenant_premium"],
+    default: "tenant_free"
+  },
+  subscriptionId: { type: String },
+  planActivatedAt: { type: Date, default: Date.now },
+  planExpiresAt: { type: Date },
+  usage: {
+    ownerContactsUsed: { type: Number, default: 0 }
+  },
+  autoRenew: { type: Boolean, default: false },
 }, {
   timestamps: true
 });

@@ -10,7 +10,12 @@ export const getCheckoutSessionMiddleware = (req:Request, res:Response, next:Nex
     if (!planId) {
         return res.status(400).json({ message: "Invalid or free plan" });
     }
-    const customerId  = req.body.user.ownerId.toString();
+    let customerId: string | undefined;
+    if (planId.startsWith("owner_")) {
+        customerId = req.body.user.ownerId?.toString();
+    } else if (planId.startsWith("tenant_")) {
+        customerId = req.body.user._id?.toString();
+    }
     const missingFields = [];
     if (!planId || !customerId || !email || !firstName) {
         if (!planId) missingFields.push("planId");
