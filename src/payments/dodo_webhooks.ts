@@ -245,6 +245,42 @@ export const dodoWebhookHandler = async (req: Request, res: Response) => {
                     break;
             }
         }
+        else if (event.type.startsWith('refund.')) {
+            const data = event.data as any;
+            const internalPaymentId = data.metadata?.internal_payment_id;
+            const gatewayPaymentId = data.payment_id;
+
+            let payment;
+            if (internalPaymentId) {
+                payment = await PaymentEntity.findById(internalPaymentId);
+            } else if (gatewayPaymentId) {
+                payment = await PaymentEntity.findOne({ gatewayPaymentId });
+            }
+
+            if (payment) {
+                const status = event.type === 'refund.succeeded' ? 'refunded' : 'refund_failed';
+                await PaymentEntity.findByIdAndUpdate(payment._id, { status });
+
+                if (event.type === 'refund.succeeded') {
+                    console.log(`Refund succeeded for payment: ${payment._id}. Reverting business logic.`);
+                    // Force downgrade to free plan as the payment was refunded
+                    await activateBusinessLogic(null, payment.userId.toString(), "owner_free");
+
+                    const user = await User.findById(payment.userId);
+                    if (user?.deviceToken) {
+                        await sendPushNotification(
+                            user.deviceToken,
+                            "Refund Processed",
+                            "Your payment has been successfully refunded. Your account has been moved to the Free plan."
+                        );
+                    }
+                } else if (event.type === 'refund.failed') {
+                    console.error(`Refund failed for payment: ${payment._id}. Reason: ${data.reason || data.failure_reason}`);
+                }
+            } else {
+                console.error(`Refund event received but no matching payment found. Gateway Payment ID: ${gatewayPaymentId}`);
+            }
+        }
 
         return res.status(200).send("OK");
     } catch (err) {
