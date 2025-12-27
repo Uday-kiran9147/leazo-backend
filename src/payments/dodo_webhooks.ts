@@ -202,6 +202,28 @@ export const dodoWebhookHandler = async (req: Request, res: Response) => {
                         await activateBusinessLogic(null, owner._id.toString(), planId);
                     }
                     break;
+                case 'subscription.plan_changed':
+                    if (owner) {
+                        console.log(`Plan changed for owner: ${owner._id} to ${planId}`);
+                        await activateBusinessLogic(null, owner._id.toString(), planId);
+                    }
+                    break;
+                case 'subscription.expired':
+                    if (owner) {
+                        console.log(`Subscription expired for owner: ${owner._id}`);
+                        // Force downgrade to free plan immediately
+                        await activateBusinessLogic(null, owner._id.toString(), "owner_free");
+
+                        const user = await User.findById(owner.userId);
+                        if (user?.deviceToken) {
+                            await sendPushNotification(
+                                user.deviceToken,
+                                "Subscription Expired",
+                                "Your premium subscription has expired. Your account has been moved to the Free plan and extra listings have been deactivated."
+                            );
+                        }
+                    }
+                    break;
                 case 'subscription.cancelled':
                     if (owner) {
                         console.log(`Subscription cancelled for owner: ${owner._id}`);
