@@ -1,6 +1,5 @@
-import mongoose from "mongoose";
 import dotenv from "dotenv";
-import { Plan } from "../models/plan.model";
+import { Plan, UserType } from "../models/plan.model";
 import { OWNER_PLAN_RULES } from "./ownerConfig";
 
 dotenv.config();
@@ -43,7 +42,7 @@ export const seedOwnerPlans = async () => {
         return {
           id: planId,
           name: meta.name,
-          userType: "Owner",
+            userType: UserType.OWNER,
           price: meta.price,
           durationDays: meta.durationDays,
           features: {

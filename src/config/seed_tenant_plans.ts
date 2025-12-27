@@ -1,4 +1,4 @@
-import { Plan } from "../models/plan.model";
+import { Plan, UserType } from "../models/plan.model";
 import { TENANT_PLAN_RULES } from "./tenantConfig";
 
 const TENANT_PLAN_META = {
@@ -28,7 +28,7 @@ export const seedTenantPlans = async () => {
         return {
           id: planId,
           name: meta.name,
-          userType: "Tenant",
+            userType: UserType.TENANT,
           price: (rules as any).price || meta.price,
           durationDays: meta.durationDays,
           features: rules,
