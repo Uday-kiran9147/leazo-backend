@@ -95,6 +95,7 @@ const activateBusinessLogic = async (payment: IPayment | null, ownerId?: string,
 const sendNotification = async (userId: string, planId: string) => {
     const user = await User.findById(userId);
     if (user && user.deviceToken) {
+        console.log("Sending notification to user:", user._id);
         let title = "Plan Activated";
         let body = "Your subscription has been successfully updated.";
 
