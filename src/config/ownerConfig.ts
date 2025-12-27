@@ -7,6 +7,7 @@ const OWNER_PLAN_PRODUCTS= {
 
 const OWNER_PLAN_RULES = {
   owner_free: {
+    price:0,
     activeListings: 1,
     photosPerListing: 3,
     weeklyBoosts: 0,
@@ -16,6 +17,7 @@ const OWNER_PLAN_RULES = {
     autoRenew: false
   },
   owner_starter: {
+    price:99,
     activeListings: 3,
     photosPerListing: 8,
     weeklyBoosts: 1,
@@ -25,6 +27,7 @@ const OWNER_PLAN_RULES = {
     autoRenew: true
   },
   owner_pro: {
+    price:199,
     activeListings: -1,
     photosPerListing: 15,
     weeklyBoosts: 7,
@@ -34,6 +37,7 @@ const OWNER_PLAN_RULES = {
     autoRenew: true
   },
   owner_ultra: {
+    price:299,
     activeListings: -1,
     photosPerListing: 22,
     weeklyBoosts: 7,
