@@ -20,9 +20,9 @@ const ownerRepository = new MongooseOwnerRepository();
 const buildingRepository = new MongooseBuildingRepository();
 const portionRepository = new MongoosePortionRepository();
 
-const ownerService = new OwnerService(ownerRepository, userRepository);
-const buildingService = new BuildingService(buildingRepository);
-const portionService = new PortionService(portionRepository);
+export const ownerService = new OwnerService(ownerRepository, userRepository);
+export const buildingService = new BuildingService(buildingRepository);
+export const portionService = new PortionService(portionRepository);
 /**
  * Creates a new owner and associates it with a user.
  *
