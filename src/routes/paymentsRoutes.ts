@@ -9,4 +9,3 @@ export const paymentsRouter = Router();
 // Define payment routes here
 
 paymentsRouter.get('/dodo/create-checkout-session',auth,getCheckoutSessionMiddleware, getCheckoutSession);
-paymentsRouter.post('/dodo/webhook',express.raw({ type: "application/json" }), dodoWebhookHandler);
