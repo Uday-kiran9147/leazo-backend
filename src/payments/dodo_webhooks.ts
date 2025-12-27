@@ -88,13 +88,41 @@ const activateBusinessLogic = async (payment: IPayment | null, ownerId?: string,
             "usage.tenantContactsUsed": 0
         }
     );
+    await sendNotification(owner.userId.toString(), planId);
 
-    // const user = await User.findById(owner.userId);
-    // if(user?.deviceToken){
-    //     // send informative notification to user with title and body plan related 
-    // }
 };
 
+const sendNotification = async (userId: string, planId: string) => {
+    const user = await User.findById(userId);
+    if (user && user.deviceToken) {
+        let title = "Plan Activated";
+        let body = "Your subscription has been successfully updated.";
+
+        switch (planId) {
+            case "owner_free":
+                title = "Free Plan Active";
+                body = "Your account is now on the Free plan.";
+                break;
+            case "owner_starter":
+                title = "Starter Plan Active! 🚀";
+                body = "Your Starter plan is now active. You can now manage up to 3 active listings.";
+                break;
+            case "owner_pro":
+                title = "Pro Plan Active! 🔥";
+                body = "You're now on the Pro plan! Enjoy unlimited active listings and enhanced visibility.";
+                break;
+            case "owner_ultra":
+                title = "Ultra Plan Active! 💎";
+                body = "Welcome to Ultra! You now have maximum visibility and all premium features unlocked.";
+                break;
+        }
+
+        await sendPushNotification(user.deviceToken, title, body);
+    } else {
+        // no device token
+        console.log("No device token found for user id:", userId);
+    }
+}
 export const dodoWebhookHandler = async (req: Request, res: Response) => {
     try {
         const event = dodosession.webhooks.unwrap(req.body.toString(), {
