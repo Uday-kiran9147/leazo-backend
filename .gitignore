@@ -79,9 +79,9 @@ test/
 
 # dotenv environment variable files
 .env
-.env.development.local
-.env.test.local
-.env.production.local
+.env.development
+.env.test
+.env.production
 .env.local
 
 # parcel-bundler cache (https://parceljs.org/)
@@ -134,12 +134,10 @@ dist
 .pnp.*
 
 ### Node Patch ###
-# Serverless Webpack directories
 .webpack/
 
 # Optional stylelint cache
 
-# SvelteKit build / generate output
 .svelte-kit
 
 # End of https://www.toptal.com/developers/gitignore/api/node

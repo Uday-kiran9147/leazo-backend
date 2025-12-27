@@ -54,12 +54,14 @@ const activateBusinessLogic = async (payment: IPayment) => {
 
     // Invalidate cache for affected portions and buildings
     const redis = RedisClientManager.getInstance();
-    const pipeline = redis.pipeline();
-    for (const portion of portions) {
-        console.log("Invalidating cache for portion:", portion._id);
-        pipeline.del(`portion:${portion._id}`);
+    if (redis) {
+        const pipeline = redis.pipeline();
+        for (const portion of portions) {
+            console.log("Invalidating cache for portion:", portion._id);
+            pipeline.del(`portion:${portion._id}`);
+        }
+        await pipeline.exec();
     }
-    pipeline.exec();
 
     // Invalidate building portions cache
     for (const buildingId of buildingIds) {

@@ -53,23 +53,78 @@ npm install
 ```
 
 ### 3. Environment Variables
-Create a `.env` file in the root directory:
+
+The project uses multiple environment files based on the `NODE_ENV` variable:
+- **Development**: `.env.development` (default)
+- **Production**: `.env.production`
+- **Test**: `.env.test`
+
+#### Complete Setup Guide
+
+1. **Development**:
+   - Create `.env.development` using `.env.sample` as a template.
+   - Set `DB_URL` to your local MongoDB (e.g., `mongodb://localhost:27017/leazo`).
+   - Caching is **disabled** by default in development environment.
+
+2. **Testing**:
+   - Create `.env.test`.
+   - Set `DB_URL` to a test database (e.g., `mongodb://localhost:27017/leazo_test`).
+   - In-memory MongoDB is used for unit tests regardless of this setting, but it's good for integration tests.
+   - Caching is **disabled** in test environment.
+
+3. **Production**:
+   - Create `.env.production`.
+   - Ensure `REDIS_URL` and `REDIS_SECRET` are provided.
+   - Caching is **enabled** ONLY in production.
+
+#### Sample Configuration (`.env.sample`)
 ```env
 PORT=3000
-MONGODB_URL=mongodb://localhost:27017/leazo
-JWT_SECRET=your_jwt_secret
+DB_URL=mongodb://localhost:27017/leazo
+JWT_SECRET=your_secret
+
+# REDIS (Production Only)
 REDIS_URL=your_upstash_redis_url
 REDIS_SECRET=your_upstash_redis_token
+
+# PAYMENTS
+DODO_API_KEY=your_dodo_key
 ```
 
 ### 4. Running the App
-```bash
-# Development mode
-npm run dev
 
-# Production build
+Depending on your environment, use the following commands:
+
+#### Development (Local)
+Loads `.env.development`, caching is **disabled**.
+```bash
+npm run dev
+```
+
+#### Production
+Loads `.env.production`, caching is **enabled**.
+```bash
+# Build the project first
 npm run build
-npm start
+
+# Run in production mode
+npm run start:prod
+```
+
+#### Testing
+Loads `.env.test`, caching is **disabled**.
+```bash
+npm test
+```
+
+### 5. Switching Environments Manually
+If you want to run a script with a specific environment variable manually in Windows PowerShell:
+```powershell
+$env:NODE_ENV="production"; npm run dev
+```
+Or in Windows Command Prompt (CMD):
+```cmd
+set NODE_ENV=production&& npm run dev
 ```
 
 ## 🧪 Testing

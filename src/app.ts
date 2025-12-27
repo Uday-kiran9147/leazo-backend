@@ -1,4 +1,13 @@
 import dotenv from 'dotenv';
+import path from 'path';
+
+// Load environment variables based on NODE_ENV
+const nodeEnv = process.env.NODE_ENV || 'development';
+const envFile = nodeEnv === 'production' ? '.env.production' :
+  nodeEnv === 'test' ? '.env.test' : '.env.development';
+
+dotenv.config({ path: path.resolve(process.cwd(), envFile) });
+// Also load general .env if it exists (as a fallback or for shared variables)
 dotenv.config();
 import express from 'express';
 import axios from 'axios';
