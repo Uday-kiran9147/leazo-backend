@@ -25,19 +25,19 @@ const OWNER_PLAN_RULES = {
     autoRenew: true
   },
   owner_pro: {
-    activeListings: Infinity,
+    activeListings: -1,
     photosPerListing: 15,
     weeklyBoosts: 7,
-    tenantContacts: Infinity,
+    tenantContacts: -1,
     verifiedBadge: true,
     visibility: "high",
     autoRenew: true
   },
   owner_ultra: {
-    activeListings: Infinity,
+    activeListings: -1,
     photosPerListing: 22,
     weeklyBoosts: 7,
-    tenantContacts: Infinity,
+    tenantContacts: -1,
     verifiedBadge: true,
     visibility: "boosted",
     autoRenew: true

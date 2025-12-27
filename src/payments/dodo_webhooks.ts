@@ -34,7 +34,7 @@ const activateBusinessLogic = async (payment: IPayment) => {
     // Determine which portions should be active based on the new plan
 
     for (const portion of portions) {
-        const shouldBeActive = plan.activeListings === Infinity || activeCount < plan.activeListings;
+        const shouldBeActive = plan.activeListings === -1 || activeCount < plan.activeListings;
 
         if (shouldBeActive) activeCount++;
         console.log(`Portion ${portion.title} should be active:`, shouldBeActive);

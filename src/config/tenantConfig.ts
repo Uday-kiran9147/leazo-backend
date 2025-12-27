@@ -8,7 +8,7 @@ export const TENANT_PLAN_RULES = {
     adFree: false
   },
   tenant_smart_finder: {
-    ownerContacts: Infinity,
+    ownerContacts: -1,
     filters: "advanced",
     earlyAccess: true,
     verifiedOnly: false,
@@ -16,7 +16,7 @@ export const TENANT_PLAN_RULES = {
     adFree: false
   },
   tenant_premium: {
-    ownerContacts: Infinity,
+    ownerContacts: -1,
     filters: "advanced",
     earlyAccess: true,
     verifiedOnly: true,
