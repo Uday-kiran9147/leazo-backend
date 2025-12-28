@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import { Owner } from "../models/owner.model";
+import { Portion } from "../models/portion.model";
 import { getPlanRules } from "../config/ownerConfig";
 import ApiResponse from "../utils/api_response";
 
@@ -24,7 +25,26 @@ export const checkPlanLimit = async (req: Request, res: Response, next: NextFunc
         // Check active listings limit
         // -1 means unlimited
         if (planRules.activeListings !== -1) {
-            if (owner.usage.activeListings >= planRules.activeListings) {
+            let isActivating = false;
+
+            if (req.method === "POST") {
+                // For creation, if isActive is not provided it defaults to true
+                isActivating = req.body.isActive !== false;
+            } else if (req.method === "PATCH" || req.method === "PUT") {
+                // For updates, we only care if they are setting isActive to true
+                if (req.body.data && req.body.data.isActive === true) {
+                    const portionId = req.params.portionId || req.body.portionId || req.query.portionId;
+                    if (portionId) {
+                        const portion = await Portion.findById(portionId);
+                        // Only a limit check if it was previously NOT active
+                        if (portion && !portion.isActive) {
+                            isActivating = true;
+                        }
+                    }
+                }
+            }
+
+            if (isActivating && owner.usage.activeListings >= planRules.activeListings) {
                 return res.status(403).json(new ApiResponse(403, `Plan limit reached: Your current plan (${owner.planId}) supports up to ${planRules.activeListings} active listings. Please upgrade to add more.`, {
                     limit: planRules.activeListings,
                     current: owner.usage.activeListings

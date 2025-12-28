@@ -19,7 +19,7 @@ ownerRouter.get('/buildings/me', auth, getOwnerBuildings) // DONE
 
 // Portions
 ownerRouter.post('/buildings/create-portion', auth, checkPlanLimit, createPortion) // DONE
-ownerRouter.patch('/buildings/update-portion', auth, updatePortion) // DONE
+ownerRouter.patch('/buildings/update-portion', auth, checkPlanLimit, updatePortion) // DONE
 ownerRouter.delete('/buildings/delete-portion', auth, deletePortion) 
 ownerRouter.get('/buildings/get-portions', auth, getPortionsByBuildingId) // DONE
 
