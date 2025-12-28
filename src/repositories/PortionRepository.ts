@@ -20,9 +20,9 @@ export class MongoosePortionRepository implements IPortionRepository {
 
     async findByBuildingId(buildingId: string, page: number = 1, limit: number = 10): Promise<any[]> {
         return await Portion.find({ buildingId, isDeleted: false })
-            .skip((page - 1) * limit)
-            .limit(limit)
-            .lean();
+            // .skip((page - 1) * limit)
+            // .limit(limit)
+            // .lean();
     }
 
     async update(id: string, data: any): Promise<any> {
