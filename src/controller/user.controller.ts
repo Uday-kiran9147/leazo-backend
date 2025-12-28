@@ -466,11 +466,35 @@ export const revealPortionContact = async (req: Request, res: Response) => {
     await User.updateOne({ _id: tenant._id }, { $inc: { "usage.ownerContactsUsed": 1 } });
     await Owner.updateOne({ _id: owner._id }, { $inc: { "usage.tenantContactsUsed": 1 } });
 
+    // Notify Owner
+    try {
+      // 1. In-app notification
+      await (Notification as any).createNotification(
+        owner.userId,
+        "Contact Revealed! 📞",
+        `${tenant.firstName} viewed your contact for ${portion.title}.`,
+        "info"
+      );
+
+      // 2. Push notification
+      const ownerUser = await User.findById(owner.userId);
+      if (ownerUser?.deviceToken) {
+        await sendPushNotification(
+          ownerUser.deviceToken,
+          "Contact viewed! 📞",
+          `${tenant.firstName} viewed your contact for ${portion.title}.`
+        );
+      }
+    } catch (notifError) {
+      console.error("Failed to notify owner:", notifError);
+      // Don't fail the request if notification fails
+    }
+
     // Invalidate caches
     await RedisClientManager.delete(`user:${tenant._id}`);
     await RedisClientManager.delete(`owner:${owner._id}`);
 
-    return res.status(200).json(new ApiResponse(200, "Contact revealed successfully", portion.contact));
+    return res.status(200).json(new ApiResponse(200, "Contact viewed successfully", portion.contact));
 
   } catch (error) {
     const apiResponse: ApiResponse = handleError(error, req, res);
