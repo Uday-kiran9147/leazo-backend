@@ -27,6 +27,8 @@ export const searchPortions = async (req: Request, res: Response) => {
 
   const mongoQuery = {
     approvalStatus: ApprovalStatus.Approved,
+    isActive: true,
+    isDeleted: false,
     $and: terms.map(regx => ({
       $or: [
         { "address.state": regx },
@@ -40,10 +42,16 @@ export const searchPortions = async (req: Request, res: Response) => {
   };
 
   try {
+    // 1. Lazy Boost Expiration
+    await Portion.updateMany(
+      { isBoosted: true, boostExpiresAt: { $lt: new Date() } },
+      { $set: { isBoosted: false } }
+    );
+
     const portions = await Portion.find(mongoQuery)
       .select("-contact")
       .limit(parseInt(limit as string, 10))
-      .sort({ createdAt: -1 });
+      .sort({ isBoosted: -1, createdAt: -1 });
 
     const responseData = { count: portions.length, portions };
     return res.status(200).json(new ApiResponse(200, "Search results", responseData));
@@ -109,7 +117,19 @@ export const deleteUser = async (req: Request, res: Response) => {
  */
 export const getAllPortions = async (req: Request, res: Response) => {
   try {
+    // 1. Lazy Boost Expiration
+    const result = await Portion.updateMany(
+      { isBoosted: true, boostExpiresAt: { $lt: new Date() } },
+      { $set: { isBoosted: false } }
+    );
+
     const cacheKey = "portions:all";
+
+    // If we expired any boosts, invalidate the global cache
+    if (result.modifiedCount > 0) {
+      await RedisClientManager.delete(cacheKey);
+    }
+
     const cachedPortions = await RedisClientManager.get(cacheKey);
 
     if (cachedPortions) {
@@ -119,7 +139,14 @@ export const getAllPortions = async (req: Request, res: Response) => {
       
       return res.status(apiResponse.status).json(apiResponse);
     }
-    const portions = await Portion.find({ approvalStatus: ApprovalStatus.Approved, isActive: true, isDeleted: false }).select("-contact");
+
+    /* 
+    In Mongoose, .select("-contact") is used for Field Projection.
+    Specifically, the minus sign (-) tells MongoDB to exclude the contact field from the results.
+    */
+    const portions = await Portion.find({ approvalStatus: ApprovalStatus.Approved, isActive: true, isDeleted: false })
+      .select("-contact")
+      .sort({ isBoosted: -1, createdAt: -1 });
     const responseData = { count: portions.length, portions };
 
     // Cache result with expiration time

@@ -22,10 +22,70 @@ describe('PortionService', () => {
         mockOwnerRepository = {
             updateActiveListings: jest.fn(),
             updateUsageCount: jest.fn(),
+            findByUserId: jest.fn(),
+            update: jest.fn(),
         } as any;
 
         portionService = new PortionService(mockPortionRepository, mockOwnerRepository);
         jest.clearAllMocks();
+    });
+
+    describe('boostPortion', () => {
+        it('should boost a portion successfully', async () => {
+            const userId = 'u123';
+            const portionId = 'p123';
+            const owner = { _id: 'o123', planId: 'owner_starter', usage: { weeklyBoostsUsed: 0 }, lastBoostResetAt: new Date() };
+            const portion = { _id: portionId, ownerId: 'o123', buildingId: 'b123' };
+
+            mockOwnerRepository.findByUserId.mockResolvedValue(owner as any);
+            mockPortionRepository.findById.mockResolvedValue(portion as any);
+            mockPortionRepository.update.mockResolvedValue({ ...portion, isBoosted: true } as any);
+
+            const result = await portionService.boostPortion(portionId, userId);
+
+            expect(result.isBoosted).toBe(true);
+            expect(mockOwnerRepository.update).toHaveBeenCalledWith('o123', expect.objectContaining({ $inc: { "usage.weeklyBoostsUsed": 1 } }));
+            expect(RedisClientManager.delete).toHaveBeenCalledWith(`portion:${portionId}`);
+        });
+
+        it('should fail if weekly boost limit reached', async () => {
+            const userId = 'u123';
+            const portionId = 'p123';
+            const owner = { _id: 'o123', planId: 'owner_starter', usage: { weeklyBoostsUsed: 1 }, lastBoostResetAt: new Date() };
+
+            mockOwnerRepository.findByUserId.mockResolvedValue(owner as any);
+
+            await expect(portionService.boostPortion(portionId, userId)).rejects.toThrow('Weekly boost limit reached (1)');
+        });
+
+        it('should reset weeklyBoostsUsed if 7 days passed', async () => {
+            const userId = 'u123';
+            const portionId = 'p123';
+            const oldDate = new Date();
+            oldDate.setDate(oldDate.getDate() - 10);
+            const owner = { _id: 'o123', planId: 'owner_starter', usage: { weeklyBoostsUsed: 5 }, lastBoostResetAt: oldDate };
+            const portion = { _id: portionId, ownerId: 'o123', buildingId: 'b123' };
+
+            mockOwnerRepository.findByUserId.mockResolvedValue(owner as any);
+            mockPortionRepository.findById.mockResolvedValue(portion as any);
+            mockPortionRepository.update.mockResolvedValue({ ...portion, isBoosted: true } as any);
+
+            await portionService.boostPortion(portionId, userId);
+
+            expect(mockOwnerRepository.update).toHaveBeenCalledWith('o123', expect.objectContaining({ "usage.weeklyBoostsUsed": 0 }));
+        });
+
+        it('should fail if not the owner', async () => {
+            const userId = 'u123';
+            const portionId = 'p123';
+            const owner = { _id: 'o123', planId: 'owner_starter', usage: { weeklyBoostsUsed: 0 } };
+            const portion = { _id: portionId, ownerId: 'o999', buildingId: 'b123' };
+
+            mockOwnerRepository.findByUserId.mockResolvedValue(owner as any);
+            mockPortionRepository.findById.mockResolvedValue(portion as any);
+
+            await expect(portionService.boostPortion(portionId, userId)).rejects.toThrow('Access denied. You do not own this portion.');
+        });
     });
 
     it('should create a portion and increment activeListings if active', async () => {

@@ -6,6 +6,8 @@ import { getStatusEmoji, getStatusMessage } from './admin.Controller';
 import { BackgroundService } from '../utils/BackgroundService';
 import { addressSchema, contactSchema } from '../utils/validators';
 import { Notification } from '../models/notification.model';
+import { Owner } from '../models/owner.model';
+import { getPlanRules } from '../config/ownerConfig';
 import { MongooseOwnerRepository } from '../repositories/OwnerRepository';
 import { MongooseUserRepository } from '../repositories/UserRepository';
 import { MongooseBuildingRepository } from '../repositories/BuildingRepository';
@@ -370,6 +372,29 @@ export const getPortionsByBuildingId = async (req: Request, res: Response) => {
         const portions = await portionService.getPortionsByBuilding(buildingId, page, limit);
         return res.status(200).json(new ApiResponse(200, "Portions retrieved successfully", { count: portions.length, portions, page, limit }));
     } catch (error) {
+        let apiResponse: ApiResponse = handleError(error, req, res);
+        return res.status(apiResponse.status).json(apiResponse);
+    }
+}
+
+export const boostPortion = async (req: Request, res: Response) => {
+    const { portionId } = req.body;
+    const user = req.body.user;
+
+    if (!portionId) {
+        return res.status(400).json(new ApiResponse(400, "Portion ID is required", null));
+    }
+
+    try {
+        const portion = await portionService.boostPortion(portionId, user._id);
+        return res.status(200).json(new ApiResponse(200, "Portion boosted successfully for 24 hours", portion));
+    } catch (error: any) {
+        if (error.message === "Owner profile not found") {
+            return res.status(404).json(new ApiResponse(404, error.message, null));
+        }
+        if (error.message.includes("limit reached") || error.message.includes("Access denied")) {
+            return res.status(403).json(new ApiResponse(403, error.message, null));
+        }
         let apiResponse: ApiResponse = handleError(error, req, res);
         return res.status(apiResponse.status).json(apiResponse);
     }

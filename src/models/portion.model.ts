@@ -28,7 +28,11 @@ export interface IPortion extends mongoose.Document, IPortionMethods {
     isDeleted: boolean;
     availabilityStatus: string;
   approvalStatus: string;
+  isBoosted: boolean;
+  boostExpiresAt?: Date;
     amenities: string[];
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 // Define the static methods interface for the model
@@ -62,6 +66,8 @@ const portionSchema = new mongoose.Schema<IPortion>(
         enum: ["Review", "Hold", "Approved", "Rejected"],
         index: true,
       },
+    isBoosted: { type: Boolean, default: false, index: true },
+    boostExpiresAt: { type: Date },
       amenities: [{ type: String }],
     },
     { timestamps: true }

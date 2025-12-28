@@ -3,6 +3,7 @@ import { Owner } from '../models/owner.model';
 export interface IOwnerRepository {
     create(data: any): Promise<any>;
     findById(id: string): Promise<any>;
+    findByUserId(userId: string): Promise<any>;
     findAll(page?: number, limit?: number): Promise<any[]>;
     update(id: string, data: any): Promise<any>;
     delete(id: string): Promise<any>;
@@ -19,6 +20,10 @@ export class MongooseOwnerRepository implements IOwnerRepository {
 
     async findById(id: string): Promise<any> {
         return await Owner.findById(id).lean();
+    }
+
+    async findByUserId(userId: string): Promise<any> {
+        return await Owner.findOne({ userId }).lean();
     }
 
     async findAll(page: number = 1, limit: number = 10): Promise<any[]> {

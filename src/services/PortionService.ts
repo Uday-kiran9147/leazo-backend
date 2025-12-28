@@ -1,12 +1,65 @@
 import { IPortionRepository } from "../repositories/PortionRepository";
 import { IOwnerRepository } from "../repositories/OwnerRepository";
 import { RedisClientManager } from "../cache/RedisClientManager";
+import { getPlanRules } from "../config/ownerConfig";
 
 export class PortionService {
     constructor(
         private portionRepository: IPortionRepository,
         private ownerRepository: IOwnerRepository
     ) { }
+
+    async boostPortion(portionId: string, userId: string) {
+        const owner = await this.ownerRepository.findByUserId(userId);
+        if (!owner) throw new Error("Owner profile not found");
+
+        // 1. Weekly Reset Logic
+        const now = new Date();
+        const lastReset = owner.lastBoostResetAt || owner.planActivatedAt || owner.createdAt;
+        const diffInDays = (now.getTime() - new Date(lastReset).getTime()) / (1000 * 3600 * 24);
+
+        if (diffInDays >= 7) {
+            await this.ownerRepository.update(owner._id.toString(), {
+                "usage.weeklyBoostsUsed": 0,
+                lastBoostResetAt: now
+            });
+            owner.usage.weeklyBoostsUsed = 0;
+            owner.lastBoostResetAt = now;
+        }
+
+        // 2. Check Plan Limit
+        const planRules = getPlanRules(owner.planId);
+        if (owner.usage.weeklyBoostsUsed >= planRules.weeklyBoosts) {
+            throw new Error(`Weekly boost limit reached (${planRules.weeklyBoosts}).`);
+        }
+
+        // 3. Portion Ownership Check
+        const portion = await this.portionRepository.findById(portionId);
+        if (!portion || portion.ownerId.toString() !== owner._id.toString()) {
+            throw new Error("Access denied. You do not own this portion.");
+        }
+
+        // 4. Boost Portion
+        const boostHours = 24;
+        const boostExpiresAt = new Date(now.getTime() + boostHours * 60 * 60 * 1000);
+
+        const updatedPortion = await this.portionRepository.update(portionId, {
+            isBoosted: true,
+            boostExpiresAt: boostExpiresAt
+        });
+
+        // 5. Update Owner Usage
+        await this.ownerRepository.update(owner._id.toString(), {
+            $inc: { "usage.weeklyBoostsUsed": 1 }
+        });
+
+        // 6. Invalidate Cache
+        await RedisClientManager.delete(`portion:${portionId}`);
+        await RedisClientManager.deletePattern(`building-portions:${portion.buildingId.toString()}:*`);
+        await RedisClientManager.delete("portions:all");
+
+        return updatedPortion;
+    }
 
     async createPortion(portionData: any) {
         const portion = await this.portionRepository.create(portionData);

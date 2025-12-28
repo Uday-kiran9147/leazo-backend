@@ -27,10 +27,11 @@ export interface IOwner extends mongoose.Document {
 
   verifiedBadge: boolean;
   visibility: "basic" | "enhanced" | "high" | "top";
-
+  lastBoostResetAt: Date;
   autoRenew: boolean;
+  createdAt: Date;
+  updatedAt: Date;
 }
-
 
 interface IOwnerModel extends mongoose.Model<IOwner> {
 
@@ -82,6 +83,10 @@ const ownerSchema = new mongoose.Schema<IOwner>(
       default: "basic"
     },
 
+    lastBoostResetAt: {
+      type: Date,
+      default: Date.now
+    },
     autoRenew: {
       type: Boolean,
       default: false
