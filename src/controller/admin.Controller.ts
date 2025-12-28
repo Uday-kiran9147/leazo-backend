@@ -8,6 +8,13 @@ import { Owner } from "../models/owner.model";
 import { RedisClientManager } from "../cache/RedisClientManager";
 import { Building } from "../models/building.model";
 import { Notification } from "../models/notification.model";
+import { MongoosePortionRepository } from "../repositories/PortionRepository";
+import { MongooseOwnerRepository } from "../repositories/OwnerRepository";
+import { PortionService } from "../services/PortionService";
+
+const portionRepository = new MongoosePortionRepository();
+const ownerRepository = new MongooseOwnerRepository();
+const portionService = new PortionService(portionRepository, ownerRepository);
 
 interface DashboardStats {
     totalListings: number;
@@ -191,8 +198,6 @@ export const getPortionsByStatus = async (req: Request, res: Response) => {
     }
 }
 export const UpdatePortionStatus = async (req: Request, res: Response) => {
-    console.log(req.originalUrl);
-
     try {
         const { id: portionId, status } = req.params;
 
@@ -202,44 +207,44 @@ export const UpdatePortionStatus = async (req: Request, res: Response) => {
             return res.status(400).json({ message: "Invalid approval status provided." });
         }
 
-        // Find and update the portion's approval status
-        const updatedPortion = await Portion.findByIdAndUpdate(
-            portionId,
-            { approvalStatus: status },
-            { new: true }
-        );
-        var apiResponse: ApiResponse;
-        if (!updatedPortion) {
-            apiResponse = new ApiResponse(404, "Portion not found.");
-            return res.status(apiResponse.status).json(apiResponse);
-        }
-        apiResponse = new ApiResponse(200, `Portion status updated to ${status} successfully.`, updatedPortion);
-        var owner = await Owner.findById(updatedPortion.ownerId);
-        if (!owner) {
-            apiResponse = new ApiResponse(404, "Owner not found.");
-            return res.status(apiResponse.status).json(apiResponse);
-        }
-        var user = await User.findById(owner?.userId);
-        var message = `Your portion, "${updatedPortion.title}", has been ${getStatusMessage(status)}.`;
+        const updateData: any = { approvalStatus: status };
 
-        var emoji = getStatusEmoji(status);
+        // Automatically deactivate if rejected or on hold to free up plan limit slots
+        if (status === "Rejected" || status === "Hold") {
+            updateData.isActive = false;
+        }
+
+        const updatedPortion = await portionService.updatePortion(portionId, updateData);
+
+        if (!updatedPortion) {
+            return res.status(404).json(new ApiResponse(404, "Portion not found."));
+        }
+
+        const apiResponse = new ApiResponse(200, `Portion status updated to ${status} successfully.`, updatedPortion);
+        const owner = await Owner.findById(updatedPortion.ownerId);
+        if (!owner) {
+            return res.status(404).json(new ApiResponse(404, "Owner not found."));
+        }
+
+        const user = await User.findById(owner.userId);
+        const message = `Your portion, "${updatedPortion.title}", has been ${getStatusMessage(status)}.`;
+        const emoji = getStatusEmoji(status);
+
         if (user && user.deviceToken) {
             await sendPushNotification(user.deviceToken, `${status}${emoji}`, message);
-            var notification = Notification.createNotification(
+            const notification = Notification.createNotification(
                 user._id,
                 `${status}${emoji}`,
                 message,
-            )
-            console.log("Notification sent to user:", user.firstName);
+            );
             (await notification).save();
-            console.log(status + emoji);
-            console.log(message);
         }
+
         await clearPortionsCache();
-        return res.status(apiResponse.status).json(apiResponse);
+        return res.status(200).json(apiResponse);
     } catch (error) {
         console.error("Error updating portion status:", error);
-        var apiError = handleError(error, req, res);
+        const apiError = handleError(error, req, res);
         res.status(apiError.status).json(apiError);
     }
 };

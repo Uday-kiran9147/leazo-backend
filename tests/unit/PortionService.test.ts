@@ -21,6 +21,7 @@ describe('PortionService', () => {
 
         mockOwnerRepository = {
             updateActiveListings: jest.fn(),
+            updateUsageCount: jest.fn(),
         } as any;
 
         portionService = new PortionService(mockPortionRepository, mockOwnerRepository);
@@ -117,14 +118,27 @@ describe('PortionService', () => {
 
     it('should delete a portion and decrement activeListings if it was active', async () => {
         const portionId = 'p123';
-        const mockPortion = { _id: portionId, buildingId: 'b123', ownerId: 'o123', isActive: true, isDeleted: false };
+        const oldPortion = { _id: portionId, buildingId: 'b123', ownerId: 'o123', isActive: true, isDeleted: false };
+        const deletedPortion = { ...oldPortion, isDeleted: true };
         
-        mockPortionRepository.delete.mockResolvedValue(mockPortion as any);
+        mockPortionRepository.findById.mockResolvedValue(oldPortion as any);
+        mockPortionRepository.delete.mockResolvedValue(deletedPortion as any);
 
         const result = await portionService.deletePortion(portionId);
 
-        expect(result).toEqual(mockPortion);
+        expect(result.isDeleted).toBe(true);
         expect(mockOwnerRepository.updateActiveListings).toHaveBeenCalledWith('o123', -1);
+        expect(RedisClientManager.delete).toHaveBeenCalledWith('owner:o123');
+    });
+
+    it('should reconcile usage count', async () => {
+        const ownerId = 'o123';
+        (mockPortionRepository as any).countActiveByOwner = jest.fn().mockResolvedValue(5);
+
+        const result = await portionService.reconcileUsage(ownerId);
+
+        expect(result).toBe(5);
+        expect(mockOwnerRepository.updateUsageCount).toHaveBeenCalledWith(ownerId, 'activeListings', 5);
         expect(RedisClientManager.delete).toHaveBeenCalledWith('owner:o123');
     });
 });

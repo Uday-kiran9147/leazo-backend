@@ -8,6 +8,7 @@ export interface IOwnerRepository {
     delete(id: string): Promise<any>;
     updateUsage(id: string, usage: any): Promise<any>;
     updateActiveListings(id: string, increment: number): Promise<any>;
+    updateUsageCount(id: string, field: string, count: number): Promise<any>;
 }
 
 export class MongooseOwnerRepository implements IOwnerRepository {
@@ -43,6 +44,14 @@ export class MongooseOwnerRepository implements IOwnerRepository {
         return await Owner.findByIdAndUpdate(
             id,
             { $inc: { "usage.activeListings": increment } },
+            { new: true }
+        ).lean();
+    }
+
+    async updateUsageCount(id: string, field: string, count: number): Promise<any> {
+        return await Owner.findByIdAndUpdate(
+            id,
+            { $set: { [`usage.${field}`]: count } },
             { new: true }
         ).lean();
     }

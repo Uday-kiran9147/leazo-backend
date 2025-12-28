@@ -6,6 +6,7 @@ export interface IPortionRepository {
     findByBuildingId(buildingId: string, page?: number, limit?: number): Promise<any[]>;
     update(id: string, data: any): Promise<any>;
     delete(id: string): Promise<any>;
+    countActiveByOwner(ownerId: string): Promise<number>;
 }
 
 export class MongoosePortionRepository implements IPortionRepository {
@@ -34,6 +35,18 @@ export class MongoosePortionRepository implements IPortionRepository {
     }
 
     async delete(id: string): Promise<any> {
-        return await Portion.findOneAndUpdate({ _id: id }, { $set: { isDeleted: true } }, { new: true });
+        return await Portion.findOneAndUpdate(
+            { _id: id, isDeleted: false },
+            { $set: { isDeleted: true } },
+            { new: true }
+        ).lean();
+    }
+
+    async countActiveByOwner(ownerId: string): Promise<number> {
+        return await Portion.countDocuments({
+            ownerId,
+            isActive: true,
+            isDeleted: false
+        });
     }
 }

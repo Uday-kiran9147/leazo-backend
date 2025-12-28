@@ -153,6 +153,10 @@ export const getOwners = async (req: Request, res: Response) => {
 export const getOwnerById = async (req: Request, res: Response) => {
     try {
         const ownerId = req.body.user.ownerId;
+
+        // Auto-reconcile usage count to fix any stale values from deletion/admin bugs
+        await portionService.reconcileUsage(ownerId);
+
         const owner = await ownerService.getOwner(ownerId);
         if (!owner) {
             return res.status(404).json({ message: "Owner not found" });

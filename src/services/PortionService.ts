@@ -45,11 +45,14 @@ export class PortionService {
         const oldPortion = await this.portionRepository.findById(portionId);
         if (!oldPortion) return null;
 
+        console.log(`Updating portion ${portionId}. Previous isActive: ${oldPortion.isActive}, New isActive: ${updateData.isActive}`);
+
         const portion = await this.portionRepository.update(portionId, updateData);
         if (portion) {
             // Handle activeListings count change
             if (updateData.isActive !== undefined && updateData.isActive !== oldPortion.isActive) {
                 const increment = updateData.isActive ? 1 : -1;
+                console.log(`Usage count change for owner ${portion.ownerId}: ${increment}`);
                 await this.ownerRepository.updateActiveListings(portion.ownerId.toString(), increment);
                 await RedisClientManager.delete(`owner:${portion.ownerId}`);
             }
@@ -61,16 +64,14 @@ export class PortionService {
     }
 
     async deletePortion(portionId: string) {
+        const oldPortion = await this.portionRepository.findById(portionId);
+        if (!oldPortion) return null;
+
         const portion = await this.portionRepository.delete(portionId);
         if (portion) {
             // If the deleted portion was active, decrement the count
-            if (portion.isActive && !portion.isDeleted) {
-                // Note: The repository update sets isDeleted to true. 
-                // We check the state BEFORE it was marked as deleted if possible, 
-                // but usually delete() returns the updated doc. 
-                // Let's assume portion matches the state BEFORE delete for a moment, 
-                // OR we check if it WAS active.
-
+            // We use oldPortion because repository.delete returns the portion with isDeleted: true
+            if (oldPortion.isActive && !oldPortion.isDeleted) {
                 await this.ownerRepository.updateActiveListings(portion.ownerId.toString(), -1);
                 await RedisClientManager.delete(`owner:${portion.ownerId}`);
             }
@@ -78,6 +79,14 @@ export class PortionService {
             await this.invalidateBuildingCache(portion.buildingId.toString());
         }
         return portion;
+    }
+
+    async reconcileUsage(ownerId: string) {
+        // This is a recovery method to fix desynced usage counts
+        const activeCount = await (this.portionRepository as any).countActiveByOwner(ownerId);
+        await this.ownerRepository.updateUsageCount(ownerId, 'activeListings', activeCount);
+        await RedisClientManager.delete(`owner:${ownerId}`);
+        return activeCount;
     }
 
     private async invalidateBuildingCache(buildingId: string) {
