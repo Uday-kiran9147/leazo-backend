@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { createOwner, deleteOwner, getOwnerById, deletePortion, getOwners, updateOwner, deleteBuilding, createBuilding, updateBuilding, getOwnerBuildings, createPortion, getPortionsByBuildingId, updatePortion, boostPortion } from "../controller/owner.controller";
+import { createOwner, deleteOwner, getOwnerById, deletePortion, getOwners, updateOwner, deleteBuilding, createBuilding, updateBuilding, getOwnerBuildings, createPortion, getPortionsByBuildingId, updatePortion, boostPortion, toggleIsActiveAndUpdateOwnerUsage } from "../controller/owner.controller";
 import { auth } from "../middleware/auth.middleware";
 import { checkPlanLimit } from "../middleware/plan_limit.middleware";
 
@@ -22,6 +22,7 @@ ownerRouter.post('/buildings/create-portion', auth, checkPlanLimit, createPortio
 ownerRouter.patch('/buildings/update-portion', auth, checkPlanLimit, updatePortion) // DONE
 ownerRouter.delete('/buildings/delete-portion', auth, deletePortion) 
 ownerRouter.post('/buildings/boost-portion', auth, boostPortion)
+ownerRouter.patch('/buildings/toggle-portion-status', auth, toggleIsActiveAndUpdateOwnerUsage)
 ownerRouter.get('/buildings/get-portions', auth, getPortionsByBuildingId) // DONE
 
 export default ownerRouter;

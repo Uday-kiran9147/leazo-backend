@@ -15,6 +15,7 @@ import { MongoosePortionRepository } from '../repositories/PortionRepository';
 import { OwnerService } from '../services/OwnerService';
 import { BuildingService } from '../services/BuildingService';
 import { PortionService } from '../services/PortionService';
+import { Portion } from '../models/portion.model';
 
 // Service Initializations
 const userRepository = new MongooseUserRepository();
@@ -399,3 +400,56 @@ export const boostPortion = async (req: Request, res: Response) => {
         return res.status(apiResponse.status).json(apiResponse);
     }
 }
+
+export const toggleIsActiveAndUpdateOwnerUsage = async (req: Request, res: Response) => {
+    const { portionId, isActive } = req.body;
+
+    try {
+        const portion = await Portion.findById(portionId);
+        if (!portion) {
+            return res.status(404).json(new ApiResponse(404, "Portion not found", null));
+        }
+
+        if (portion.isActive === isActive) {
+            return res.status(400).json(
+                new ApiResponse(400, `Portion is already ${isActive ? "active" : "inactive"}`, null)
+            );
+        }
+
+        const owner = await Owner.findById(req.body.user.ownerId);
+        if (!owner) {
+            return res.status(404).json(new ApiResponse(404, "Owner not found", null));
+        }
+
+        const planRules = getPlanRules(owner.planId);
+
+        if (
+            isActive === true &&
+            planRules.activeListings !== -1 &&
+            owner.usage.activeListings >= planRules.activeListings
+        ) {
+            return res.status(400).json(
+                new ApiResponse(400, `${planRules.activeListings} active listings limit reached`, null)
+            );
+        }
+
+        portion.isActive = isActive;
+        await portion.save();
+
+        if (isActive) {
+            owner.usage.activeListings += 1;
+        } else {
+            owner.usage.activeListings = Math.max(0, owner.usage.activeListings - 1);
+        }
+
+        await owner.save();
+
+        return res.status(200).json(
+            new ApiResponse(200, "Portion status updated successfully", portion)
+        );
+    } catch (error) {
+        const apiResponse = handleError(error, req, res);
+        return res.status(apiResponse.status).json(apiResponse);
+    }
+};
+
