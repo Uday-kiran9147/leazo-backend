@@ -45,10 +45,9 @@ export const checkPlanLimit = async (req: Request, res: Response, next: NextFunc
             }
 
             if (isActivating && owner.usage.activeListings >= planRules.activeListings) {
-                return res.status(403).json(new ApiResponse(403, `Plan limit reached: Your current plan (${owner.planId}) supports up to ${planRules.activeListings} active listings. Please upgrade to add more.`, {
-                    limit: planRules.activeListings,
-                    current: owner.usage.activeListings
-                }));
+                // update reqbody to not activate
+                req.body.data.isActive = false;
+                return next();
             }
         }
 
