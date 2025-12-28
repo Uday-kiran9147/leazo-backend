@@ -429,7 +429,7 @@ export const toggleIsActiveAndUpdateOwnerUsage = async (req: Request, res: Respo
             owner.usage.activeListings >= planRules.activeListings
         ) {
             return res.status(400).json(
-                new ApiResponse(400, `${planRules.activeListings} active listings limit reached`, null)
+                new ApiResponse(400, `${planRules.activeListings} active listings limit reached, please upgrade your plan`, null)
             );
         }
 
@@ -445,7 +445,7 @@ export const toggleIsActiveAndUpdateOwnerUsage = async (req: Request, res: Respo
         await owner.save();
 
         return res.status(200).json(
-            new ApiResponse(200, "Portion status updated successfully", portion)
+            new ApiResponse(200, "Portion status updated successfully",null)
         );
     } catch (error) {
         const apiResponse = handleError(error, req, res);
