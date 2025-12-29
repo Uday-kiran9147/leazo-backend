@@ -8,7 +8,11 @@ export class PortionService {
         private portionRepository: IPortionRepository,
         private ownerRepository: IOwnerRepository
     ) { }
-
+    async isPortionActive(portionId: string): Promise<boolean> {
+        const portion = await this.portionRepository.findById(portionId);
+        if (!portion) throw new Error("Portion not found");
+        return portion.isActive;
+    }
     async boostPortion(portionId: string, userId: string) {
         const owner = await this.ownerRepository.findByUserId(userId);
         if (!owner) throw new Error("Owner profile not found");

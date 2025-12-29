@@ -387,6 +387,10 @@ export const boostPortion = async (req: Request, res: Response) => {
     }
 
     try {
+        const isActive = await portionService.isPortionActive(portionId);
+        if (!isActive) {
+            return res.status(400).json(new ApiResponse(400, "Only active portions can be boosted", null));
+        }
         const portion = await portionService.boostPortion(portionId, user._id);
         return res.status(200).json(new ApiResponse(200, "Portion boosted successfully for 24 hours", portion));
     } catch (error: any) {
