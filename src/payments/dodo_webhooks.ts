@@ -259,6 +259,7 @@ export const dodoWebhookHandler = async (req: Request, res: Response) => {
                     status: data.status,
                     gatewayPaymentId: data.payment_id,
                     settlementAmount: data.settlement_amount,
+                    totalAmount: data.total_amount,
                     paymentMethod: data.payment_method
                 },
                 { new: true }
