@@ -8,6 +8,8 @@ import { RedisClientManager } from "../cache/RedisClientManager";
 import { sendPushNotification } from "../utils/push_notifications";
 import { User } from "../models/user.model";
 import { getTenantPlanRules } from "../config/tenantConfig";
+import { Notification } from "../models/notification.model";
+import mongoose from "mongoose";
 
 
 const activateTenantBusinessLogic = async (payment: IPayment | null, userId?: string, planIdStr?: string) => {
@@ -73,6 +75,11 @@ const sendTenantNotification = async (userId: string, planId: string) => {
         }
 
         await sendPushNotification(user.deviceToken, title, body);
+        try {
+            await (Notification as any).createNotification(user._id, title, body, "success");
+        } catch (err) {
+            console.error("Failed to create internal notification", err);
+        }
     }
 };
 
@@ -186,9 +193,46 @@ const sendNotification = async (userId: string, planId: string) => {
         }
 
         await sendPushNotification(user.deviceToken, title, body);
+        try {
+            await (Notification as any).createNotification(user._id, title, body, "success");
+        } catch (err) {
+            console.error("Failed to create internal notification", err);
+        }
     } else {
         // no device token
         console.log("No device token found for user id:", userId);
+    }
+}
+
+const sendPaymentUpdateNotification = async (payment: IPayment, title: string, body: string, type: 'info' | 'success' | 'warning' | 'error' | 'custom' = 'info') => {
+    let userId: string | null = null;
+    
+    if (payment.planId.startsWith("owner_")) {
+        const owner = await Owner.findById(payment.userId);
+        userId = owner ? owner.userId.toString() : null;
+    } else {
+        userId = payment.userId.toString();
+    }
+
+    if (userId) {
+        const user = await User.findById(userId);
+        if (user) {
+            // 1. Internal notification
+            try {
+                await (Notification as any).createNotification(user._id, title, body, type);
+            } catch (err) {
+                console.error("Failed to create internal notification", err);
+            }
+
+            // 2. Push notification
+            if (user.deviceToken) {
+                try {
+                    await sendPushNotification(user.deviceToken, title, body);
+                } catch (err) {
+                    console.error("Failed to send push notification", err);
+                }
+            }
+        }
     }
 }
 export const dodoWebhookHandler = async (req: Request, res: Response) => {
@@ -214,18 +258,35 @@ export const dodoWebhookHandler = async (req: Request, res: Response) => {
                 {
                     status: data.status,
                     gatewayPaymentId: data.payment_id,
-                    amount: data.settlement_amount,
+                    settlementAmount: data.settlement_amount,
                     paymentMethod: data.payment_method
                 },
                 { new: true }
             );
 
             console.log("Updated payment with gateway session ID:", updatedPayment);
-            if (event.type === "payment.succeeded" && updatedPayment) {
-                if (updatedPayment.planId.startsWith("owner_")) {
-                    await activateBusinessLogic(updatedPayment);
-                } else if (updatedPayment.planId.startsWith("tenant_")) {
-                    await activateTenantBusinessLogic(updatedPayment);
+
+            if (updatedPayment) {
+                switch (event.type) {
+                    case "payment.succeeded":
+                        if (updatedPayment.planId.startsWith("owner_")) {
+                            await activateBusinessLogic(updatedPayment);
+                        } else if (updatedPayment.planId.startsWith("tenant_")) {
+                            await activateTenantBusinessLogic(updatedPayment);
+                        }
+                        break;
+
+                    case "payment.processing":
+                        await sendPaymentUpdateNotification(updatedPayment, "Payment Processing ⏳", "Your payment is currently being processed. We'll notify you once it's complete.", "info");
+                        break;
+
+                    case "payment.failed":
+                        await sendPaymentUpdateNotification(updatedPayment, "Payment Failed ❌", "Your payment attempt failed. Please check your payment details and try again.", "error");
+                        break;
+
+                    case "payment.cancelled":
+                        await sendPaymentUpdateNotification(updatedPayment, "Payment Cancelled 🛑", "Your payment was cancelled before completion.", "warning");
+                        break;
                 }
             }
         }
