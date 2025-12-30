@@ -41,6 +41,12 @@ jest.mock('../src/utils/BackgroundService', () => ({
   },
 }));
 
+// Mock Email Service
+jest.mock('../src/utils/mail', () => ({
+  __esModule: true,
+  default: jest.fn().mockResolvedValue(true),
+}));
+
 // Set global timeout for CI
 jest.setTimeout(30000);
 

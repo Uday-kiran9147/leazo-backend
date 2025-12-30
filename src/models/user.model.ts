@@ -40,6 +40,8 @@ interface IUser extends Document, IUserMethods {
     ownerContactsUsed: number;
   };
   autoRenew: boolean;
+  resetPasswordToken?: string;
+  resetPasswordExpires?: Date;
 }
 
 // Define the static methods interface for the model
@@ -86,6 +88,8 @@ const userSchema = new Schema<IUser>({
     ownerContactsUsed: { type: Number, default: 0 }
   },
   autoRenew: { type: Boolean, default: false },
+  resetPasswordToken: { type: String },
+  resetPasswordExpires: { type: Date },
 }, {
   timestamps: true
 });
