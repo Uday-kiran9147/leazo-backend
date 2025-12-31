@@ -5,7 +5,15 @@ import path from 'path';
 const nodeEnv = process.env.NODE_ENV || 'development';
 const envFile = nodeEnv === 'production' ? '.env.production' :
   nodeEnv === 'test' ? '.env.test' : '.env.development';
+// Development logging
+if (nodeEnv === 'development') {
+  console.log('Development environment');
+}
 
+// Production logging
+if (nodeEnv === 'production') {
+  console.log('Production environment');
+}
 dotenv.config({ path: path.resolve(process.cwd(), envFile) });
 // Also load general .env if it exists (as a fallback or for shared variables)
 dotenv.config();
@@ -47,9 +55,29 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 
-app.use('/v1/api/webhooks', webhookRouter);
 // Middleware
+app.use('/v1/api/webhooks', webhookRouter);
 app.use(express.json());
+
+// Development error handling
+if (process.env.NODE_ENV === 'development') {
+  app.use((err: any, req: any, res: any, next: any) => {
+    res.status(err.status || 500).json({
+      message: err.message,
+      error: err
+    });
+  });
+}
+
+// Production error handling
+if (process.env.NODE_ENV === 'production') {
+  app.use((err: any, req: any, res: any, next: any) => {
+    res.status(err.status || 500).json({
+      message: 'Something went wrong!',
+      error: {}
+    });
+  });
+}
 
 // Routes
 app.use('/api/auth', authRoutes);
