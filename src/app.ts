@@ -41,7 +41,7 @@ connectToDatabase()
 // console.log(process.env.REFRESH_TOKEN_EXPIRY);
 // console.log(process.env.REDIS_URL);
 // console.log(process.env.REDIS_SECRET);
-console.log("DODO KEY:", process.env.DODO_API_KEY);
+// console.log("DODO KEY:", process.env.DODO_API_KEY);
 
 const app = express();
 const PORT = process.env.PORT || 3000;
