@@ -6,13 +6,26 @@ export class RedisClientManager {
     // Private constructor to prevent instantiation
     private constructor() { }
 
-    private static isProduction(): boolean {
-        return process.env.NODE_ENV === 'production';
+    /* 
+    2. The Logic (&&)
+    The && (AND operator) ensures that both variables must be present. If you provide a URL but forget the Secret, it will return false because Redis won't be able to connect anyway.
+
+    3. The "Double Bang" (!!)
+    The !! is a common JavaScript trick to convert any value into a strict true or false (boolean):
+
+    First !: Turns the value into its opposite boolean. If REDIS_URL is "https://..." (truthy), it becomes false.
+    Second !: Flips it back. false becomes true.
+    Result: If the string exists, you get true. If it's missing (undefined), you get false.    
+    */
+    private static isEnabled(): boolean {
+        const isEnabled = !!process.env.REDIS_URL && !!process.env.REDIS_SECRET;
+        console.log(`[Redis] isEnabled: ${isEnabled}`);
+        return isEnabled;
     }
 
     // Singleton instance getter
     static getInstance(): Redis | null {
-        if (!this.isProduction()) {
+        if (!this.isEnabled()) {
             return null;
         }
 
@@ -26,7 +39,7 @@ export class RedisClientManager {
     }
 
     static async deletePattern(pattern: string): Promise<void> {
-        if (!this.isProduction()) return;
+        if (!this.isEnabled()) return;
         try {
             const redis = RedisClientManager.getInstance();
             if (!redis) return;
@@ -45,7 +58,7 @@ export class RedisClientManager {
 
     // Set a value in Redis with an optional expiration time (in seconds)
     static async set(key: string, value: any, expirationInSeconds?: number): Promise<void> {
-        if (!this.isProduction()) return;
+        if (!this.isEnabled()) return;
         try {
             const redis = RedisClientManager.getInstance();
             if (!redis) return;
@@ -64,7 +77,7 @@ export class RedisClientManager {
 
     // Get a value from Redis by key
     static async get(key: string): Promise<any> {
-        if (!this.isProduction()) return null;
+        if (!this.isEnabled()) return null;
         try {
             const redis = RedisClientManager.getInstance();
             if (!redis) return null;
@@ -83,7 +96,7 @@ export class RedisClientManager {
 
     // Delete a key from Redis
     static async delete(key: string): Promise<void> {
-        if (!this.isProduction()) return;
+        if (!this.isEnabled()) return;
         try {
             const redis = RedisClientManager.getInstance();
             if (!redis) return;
@@ -96,7 +109,7 @@ export class RedisClientManager {
 
     // Check if a key exists in Redis
     static async exists(key: string): Promise<boolean> {
-        if (!this.isProduction()) return false;
+        if (!this.isEnabled()) return false;
         try {
             const redis = RedisClientManager.getInstance();
             if (!redis) return false;
@@ -111,7 +124,7 @@ export class RedisClientManager {
 
     // Increment a value in Redis
     static async incr(key: string): Promise<number> {
-        if (!this.isProduction()) return 0;
+        if (!this.isEnabled()) return 0;
         try {
             const redis = RedisClientManager.getInstance();
             if (!redis) return 0;

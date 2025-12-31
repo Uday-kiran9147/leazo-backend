@@ -2,7 +2,9 @@ import * as admin from 'firebase-admin';
 import fs from 'fs';
 import path from 'path';
 
-const serviceAccountPath = path.join(process.cwd(), "service_account.json");
+const serviceAccountPath = process.env.FIREBASE_SERVICE_ACCOUNT_PATH
+  ? path.resolve(process.cwd(), process.env.FIREBASE_SERVICE_ACCOUNT_PATH)
+  : path.join(process.cwd(), "service_account.json");
 
 if (fs.existsSync(serviceAccountPath)) {
   const serviceaccount = require(serviceAccountPath) as admin.ServiceAccount;

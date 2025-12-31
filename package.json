@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "main": "dist/src/app.js",
   "scripts": {
-    "start": "node dist/src/app.js",
+    "start": "set NODE_ENV=production&& node dist/src/app.js",
     "start:prod": "set NODE_ENV=production&& node dist/src/app.js",
     "dev": "set NODE_ENV=development&& nodemon --exec ts-node src/app.ts",
     "test": "set NODE_ENV=test&& jest",
