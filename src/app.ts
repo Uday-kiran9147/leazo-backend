@@ -32,6 +32,7 @@ import { globalErrorHandler } from './middleware/error_handler';
 import plansRouter from './routes/plansRoute';
 import { paymentsRouter } from './routes/paymentsRoutes';
 import { webhookRouter } from './routes/webhookRouter';
+import { PaymentEntity } from './payments/payments.models';
 
 
 
@@ -96,6 +97,27 @@ app.use('/v1/api', filerouter)
 app.get("/", (req: Request, res: Response) => {
     res.json({ "Leazo": "Welcome to LeazOOOOOOOOOO!" });
 })
+
+
+app.get("/api/subscription-status", async (req: Request, res: Response) => {
+
+  const internalPaymentId = req.query.internal_payment_id as string;
+  if (!internalPaymentId) {
+    return res.status(400).json({ error: "internal_payment_id required" });
+  }
+
+  const record = await PaymentEntity.findById(internalPaymentId);
+  if (!record) {
+    return res.status(404).json({ error: "Payment record not found" });
+  }
+
+  console.log(record);
+  return res.json({
+    status: record.status,
+    subscription_id: record.gatewaySubscriptionId ?? null,
+  });
+    
+});
 
 // Global Error Handler - Must be the last middleware
 app.use(globalErrorHandler);
