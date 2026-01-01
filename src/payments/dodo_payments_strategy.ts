@@ -41,7 +41,7 @@ export class DodoPaymentsStrategy implements IPaymentStrategy {
                 productId,
                 planId                
             },
-            return_url: `${front}?internal_payment_id=${encodeURIComponent(paymentId)}`,
+            return_url: `${front}?internal_payment_id=${paymentId}`,
         });
 
         if (!session.checkout_url) {
