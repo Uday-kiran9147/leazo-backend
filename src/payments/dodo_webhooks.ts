@@ -275,7 +275,7 @@ const handlePaymentEvent = async (event: any, data: any) => {
     );
 
     if (!updatedPayment) return;
-
+    console.log("[PAYMENT] Updated payment:", updatedPayment);
     // MINIMALIST LOGIC: Notify based on finality
     if (event.type === "payment.succeeded") {
         await sendPaymentUpdateNotification(updatedPayment, "Payment Successful ✅", "Your payment has been successfully processed.", "success");
