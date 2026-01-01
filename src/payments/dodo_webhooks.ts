@@ -74,8 +74,12 @@ const sendTenantNotification = async (userId: string, planId: string) => {
                 break;
         }
 
-        if(user.deviceToken){
-            await sendPushNotification(user.deviceToken, title, body);
+        if (user.deviceToken) {
+            try {
+                await sendPushNotification(user.deviceToken, title, body);
+            } catch (err) {
+                console.error("Failed to send push notification to tenant", err);
+            }
         }
         try {
             await (Notification as any).createNotification(user._id, title, body, "success");
@@ -93,7 +97,7 @@ const activateOwnerBusinessLogic = async (payment: IPayment | null, ownerId?: st
 
     let owner;
     if (payment) {
-        owner = await Owner.findOne({ _id: payment.userId });
+        owner = await Owner.findOne({ userId: payment.userId });
     } else if (ownerId) {
         owner = await Owner.findById(ownerId);
     }
@@ -169,14 +173,19 @@ const activateOwnerBusinessLogic = async (payment: IPayment | null, ownerId?: st
             "usage.tenantContactsUsed": 0
         }
     );
-    await sendNotification(owner.userId.toString(), planId);
-
+    try {
+        const user = await User.findById(owner.userId);
+        if (user && user.deviceToken) {
+            await sendPlanNotification(user._id.toString(), user.deviceToken, planId);
+        }
+    } catch (err) {
+        console.error("Failed to send notification to owner", err);
+    }
 };
 
-const sendNotification = async (userId: string, planId: string) => {
-    const user = await User.findById(userId);
-    if (user && user.deviceToken) {
-        console.log("Sending notification to user:", user._id);
+const sendPlanNotification = async (userId: string, deviceToken: string, planId: string) => {
+    if (userId && deviceToken) {
+        console.log("Sending notification to user:", userId);
         let title = "Plan Activated";
         let body = "Your subscription has been successfully updated.";
 
@@ -199,9 +208,13 @@ const sendNotification = async (userId: string, planId: string) => {
                 break;
         }
 
-        await sendPushNotification(user.deviceToken, title, body);
         try {
-            await (Notification as any).createNotification(user._id, title, body, "success");
+            await sendPushNotification(deviceToken, title, body);
+        } catch (err) {
+            console.error("Failed to send push notification to owner", err);
+        }
+        try {
+            await (Notification as any).createNotification(userId, title, body, "success");
         } catch (err) {
             console.error("Failed to create internal notification", err);
         }
@@ -213,7 +226,7 @@ const sendNotification = async (userId: string, planId: string) => {
 
 const sendPaymentUpdateNotification = async (payment: IPayment, title: string, body: string, type: 'info' | 'success' | 'warning' | 'error' | 'custom' = 'info') => {
     let userId: string | null = null;
-    
+
     if (payment.planId.startsWith("owner_")) {
         const owner = await Owner.findById(payment.userId);
         userId = owner ? owner.userId.toString() : null;
@@ -244,8 +257,11 @@ const sendPaymentUpdateNotification = async (payment: IPayment, title: string, b
 }
 const handlePaymentEvent = async (event: any, data: any) => {
     const paymentId = data.metadata?.internal_payment_id;
-    console.log(`Received Dodo webhook for payment ID: ${paymentId} with event type: ${event.type}`);
+    if (!paymentId) return;
 
+    console.log(`[PAYMENT] Processing ${event.type} for ID: ${paymentId}`);
+
+    // Update the base payment record for all payment events
     const updatedPayment = await PaymentEntity.findByIdAndUpdate(
         paymentId,
         {
@@ -258,25 +274,49 @@ const handlePaymentEvent = async (event: any, data: any) => {
         { new: true }
     );
 
-    console.log("Updated payment with gateway session ID:", updatedPayment);
+    if (!updatedPayment) return;
 
-    if (updatedPayment) {
-        switch (event.type) {
-            case "payment.succeeded":
-                await sendPaymentUpdateNotification(updatedPayment, "Payment Successful ✅", "Your payment has been successfully processed.", "success");
-                break;
+    // MINIMALIST LOGIC: Notify based on finality
+    if (event.type === "payment.succeeded") {
+        await sendPaymentUpdateNotification(updatedPayment, "Payment Successful ✅", "Your payment has been successfully processed.", "success");
+    } else if (event.type === "payment.failed") {
+        await sendPaymentUpdateNotification(updatedPayment, "Payment Failed ❌", "Your payment attempt failed. Please check your details.", "error");
+    }
+};
 
-            case "payment.processing":
-                await sendPaymentUpdateNotification(updatedPayment, "Payment Processing ⏳", "Your payment is currently being processed. We'll notify you once it's complete.", "info");
-                break;
+const handleRefundEvent = async (event: any, data: any) => {
+    const internalPaymentId = data.metadata?.internal_payment_id;
+    const gatewayPaymentId = data.payment_id;
 
-            case "payment.failed":
-                await sendPaymentUpdateNotification(updatedPayment, "Payment Failed ❌", "Your payment attempt failed. Please check your payment details and try again.", "error");
-                break;
+    // 1. Locate the payment
+    const payment = internalPaymentId 
+        ? await PaymentEntity.findById(internalPaymentId)
+        : await PaymentEntity.findOne({ gatewayPaymentId });
 
-            case "payment.cancelled":
-                await sendPaymentUpdateNotification(updatedPayment, "Payment Cancelled 🛑", "Your payment was cancelled before completion.", "warning");
-                break;
+    if (!payment) {
+        console.error(`[REFUND] No matching payment found for ${gatewayPaymentId}`);
+        return;
+    }
+
+    // 2. Process Succeeded Refund
+    if (event.type === 'refund.succeeded') {
+        console.log(`[REFUND] Succeeded for ${payment._id}. Reverting to free plan.`);
+        
+        await PaymentEntity.findByIdAndUpdate(payment._id, { status: 'refunded' });
+
+        const isOwner = payment.planId.startsWith("owner_");
+        const fallbackPlan = isOwner ? "owner_free" : "tenant_free";
+
+        if (isOwner) {
+            await activateOwnerBusinessLogic(null, payment.userId.toString(), fallbackPlan);
+        } else {
+            await activateTenantBusinessLogic(null, payment.userId.toString(), fallbackPlan);
+        }
+
+        // Notify user
+        const user = await User.findById(payment.userId);
+        if (user?.deviceToken) {
+            await sendPushNotification(user.deviceToken, "Refund Processed", "Your payment has been refunded and your account moved to the Free plan.");
         }
     }
 };
@@ -286,188 +326,109 @@ const handleSubscriptionEvent = async (event: any, data: any) => {
     const internalPaymentId = data.metadata?.internal_payment_id;
     const planId = data.metadata?.planId;
 
-    let owner;
-    if (internalPaymentId) {
-        const payment = await PaymentEntity.findById(internalPaymentId);
-        if (payment) {
-            owner = await Owner.findById(payment.userId);
-            await PaymentEntity.findByIdAndUpdate(internalPaymentId, { gatewaySubscriptionId: subscriptionId });
-        }
+    if (!internalPaymentId || !planId) {
+        console.error("Missing metadata in webhook:", { internalPaymentId, planId });
+        return;
     }
 
-    switch (event.type) {
-        case 'subscription.active':
-            if (data.status === 'active') {
-                if (planId?.startsWith("owner_") && owner) {
-                    await Owner.findByIdAndUpdate(owner._id, { subscriptionId: subscriptionId });
-                    await activateOwnerBusinessLogic(null, owner._id.toString(), planId);
-                } else if (planId?.startsWith("tenant_") && internalPaymentId) {
-                    const payment = await PaymentEntity.findById(internalPaymentId);
-                    if (payment) {
-                        console.log(`Subscription active for tenant: ${payment.userId}, subscription: ${subscriptionId}`);
-                        await User.findByIdAndUpdate(payment.userId, { subscriptionId: subscriptionId });
-                        await activateTenantBusinessLogic(null, payment.userId.toString(), planId);
-                    }
-                }
-            } else {
-                console.log(`Subscription active event received but status is: ${data.status}`);
-            }
-            break;
-        case 'subscription.updated':
-            if (data.status === 'active') {
-                if (planId?.startsWith("owner_") && owner) {
-                    await Owner.findByIdAndUpdate(owner._id, { subscriptionId: subscriptionId });
-                } else if (planId?.startsWith("tenant_") && internalPaymentId) {
-                    const payment = await PaymentEntity.findById(internalPaymentId);
-                    if (payment) {
-                        console.log(`Subscription updated for tenant: ${payment.userId}, plan: ${planId}`);
-                        await User.findByIdAndUpdate(payment.userId, { subscriptionId: subscriptionId });
-                    }
-                }
-            } else {
-                console.log(`Subscription updated for tenant: ${data.customer?.customer_id}, status: ${data.status}. Skipping activation.`);
-            }
-            break;
-        case 'subscription.on_hold':
-            if (planId?.startsWith("owner_") && owner) {
-                await Owner.findByIdAndUpdate(owner._id, { autoRenew: false });
-            } else if (planId?.startsWith("tenant_") && internalPaymentId) {
-                const payment = await PaymentEntity.findById(internalPaymentId);
-                if (payment) {
-                    console.log(`Subscription on hold for tenant: ${payment.userId}`);
-                    await User.findByIdAndUpdate(payment.userId, { autoRenew: false });
-                }
-            }
-            break;
-        case 'subscription.failed':
-            if (planId?.startsWith("owner_")) {
-                console.error(`Subscription failed for owner: ${owner?._id}, subscription: ${subscriptionId}. Downgrading to free.`);
-                if (owner) {
-                    // await activateOwnerBusinessLogic(null, owner._id.toString(), "owner_free");
-                }
-            } else if (planId?.startsWith("tenant_") && internalPaymentId) {
-                // const payment = await PaymentEntity.findById(internalPaymentId);
-                // if (payment) {
-                //     console.error(`Subscription failed for tenant: ${payment.userId}, subscription: ${subscriptionId}. Downgrading to free.`);
-                //     await activateTenantBusinessLogic(null, payment.userId.toString(), "tenant_free");
-                // }
-            }
-            break;
-        case 'subscription.renewed':
-            if (planId?.startsWith("tenant_") && internalPaymentId) {
-                const payment = await PaymentEntity.findById(internalPaymentId);
-                if (payment) {
-                    console.log(`Subscription renewed for tenant: ${payment.userId}, plan: ${planId}`);
-                }
-            }
-            break;
-        case 'subscription.plan_changed':
-            if (planId?.startsWith("owner_") && owner) {
-                console.log(`Plan changed for owner: ${owner._id} to ${planId}`);
-            } else if (planId?.startsWith("tenant_") && internalPaymentId) {
-                // const payment = await PaymentEntity.findById(internalPaymentId);
-                // if (payment) {
-                //     console.log(`Plan changed for tenant: ${payment.userId} to ${planId}`);
-                // }
-            }
-            break;
-        case 'subscription.expired':
-            if (planId?.startsWith("owner_") && owner) {
-                console.log(`Subscription expired for owner: ${owner._id}`);
-                await activateOwnerBusinessLogic(null, owner._id.toString(), "owner_free");
+    const payment = await PaymentEntity.findById(internalPaymentId);
+    if (!payment) return;
 
-                const user = await User.findById(owner.userId);
-                if (user?.deviceToken) {
-                    await sendPushNotification(
-                        user.deviceToken,
-                        "Subscription Expired",
-                        "Your premium subscription has expired. Your account has been moved to the Free plan and extra listings have been deactivated."
-                    );
-                }
-            } else if (planId?.startsWith("tenant_") && internalPaymentId) {
-                const payment = await PaymentEntity.findById(internalPaymentId);
-                if (payment) {
-                    console.log(`Subscription expired for tenant: ${payment.userId}`);
-                    await activateTenantBusinessLogic(null, payment.userId.toString(), "tenant_free");
+    const isOwner = planId.startsWith("owner_");
+    const userId = payment.userId.toString();
 
-                    const user = await User.findById(payment.userId);
-                    if (user?.deviceToken) {
-                        await sendPushNotification(
-                            user.deviceToken,
-                            "Subscription Expired",
-                            "Your premium tenant subscription has expired. Your account has been moved to the Free plan."
-                        );
-                    }
-                }
-            }
-            break;
-        case 'subscription.cancelled':
-            if (planId?.startsWith("owner_") && owner) {
-                console.log(`Subscription cancelled for owner: ${owner._id}`);
-                await Owner.findByIdAndUpdate(owner._id, { autoRenew: false });
-                const user = await User.findById(owner.userId);
-                if (user?.deviceToken) {
-                    await sendPushNotification(
-                        user.deviceToken,
-                        "Subscription Cancelled",
-                        "Your premium subscription has been cancelled and will not renew. You will retain access until the end of your current billing period."
-                    );
-                }
-            } else if (planId?.startsWith("tenant_") && internalPaymentId) {
-                const payment = await PaymentEntity.findById(internalPaymentId);
-                if (payment) {
-                    console.log(`Subscription cancelled for tenant: ${payment.userId}`);
-                    await User.findByIdAndUpdate(payment.userId, { autoRenew: false });
-                    const user = await User.findById(payment.userId);
-                    if (user?.deviceToken) {
-                        await sendPushNotification(
-                            user.deviceToken,
-                            "Subscription Cancelled",
-                            "Your premium tenant subscription has been cancelled and will not renew."
-                        );
-                    }
-                }
-            }
-            break;
+    // --- 1. SUCCESS: GRANT OR MAINTAIN ACCESS ---
+    const successEvents = [
+        'subscription.active',
+        'subscription.renewed',
+        'subscription.plan_changed',
+        // update triggers frequently
+        // 'subscription.updated'
+    ];
+
+    if (successEvents.includes(event.type) && data.status === 'active') {
+        console.log(`[SUCCESS] Granting/Renewing ${planId} for ${userId}`);
+
+        if (isOwner) {
+            await Owner.findByIdAndUpdate(userId, { subscriptionId, autoRenew: true });
+            await activateOwnerBusinessLogic(null, userId, planId);
+        } else {
+            await User.findByIdAndUpdate(userId, { subscriptionId, autoRenew: true });
+            await activateTenantBusinessLogic(null, userId, planId);
+        }
+        return; // Exit early
+    }
+
+    // --- 2. FAILURE/EXPIRY: REVOKE ACCESS ---
+    const failureEvents = [
+        'subscription.expired',
+        'subscription.failed',
+        'subscription.on_hold'
+    ];
+
+    if (failureEvents.includes(event.type)) {
+        console.log(`[REVOKE] Reverting to free plan for ${userId} due to ${event.type}`);
+
+        const fallbackPlan = isOwner ? "owner_free" : "tenant_free";
+
+        if (isOwner) {
+            await activateOwnerBusinessLogic(null, userId, fallbackPlan);
+        } else {
+            await activateTenantBusinessLogic(null, userId, fallbackPlan);
+        }
+        return; // Exit early
+    }
+
+    // --- 3. SOFT CANCELLATION: UPDATE AUTO-RENEW ONLY ---
+    // User keeps premium features, but will not be charged again.
+    if (event.type === 'subscription.cancelled') {
+        console.log(`[CANCEL] Disabling auto-renew for ${userId}`);
+        
+        if (isOwner) {
+            await Owner.findByIdAndUpdate(userId, { autoRenew: false });
+        } else {
+            await User.findByIdAndUpdate(userId, { autoRenew: false });
+        }
     }
 };
 
-const handleRefundEvent = async (event: any, data: any) => {
-    const internalPaymentId = data.metadata?.internal_payment_id;
+const handleDisputeEvent = async (event: any, data: any) => {
     const gatewayPaymentId = data.payment_id;
+    const payment = await PaymentEntity.findOne({ gatewayPaymentId });
 
-    let payment;
-    if (internalPaymentId) {
-        payment = await PaymentEntity.findById(internalPaymentId);
-    } else if (gatewayPaymentId) {
-        payment = await PaymentEntity.findOne({ gatewayPaymentId });
+    if (!payment) {
+        console.error(`Dispute event received but no matching payment found. Gateway Payment ID: ${gatewayPaymentId}`);
+        return;
     }
 
-    if (payment) {
-        const status = event.type === 'refund.succeeded' ? 'refunded' : 'refund_failed';
-        await PaymentEntity.findByIdAndUpdate(payment._id, { status });
+    console.log(`Received dispute event: ${event.type} for payment: ${payment._id}`);
 
-        if (event.type === 'refund.succeeded') {
-            console.log(`Refund succeeded for payment: ${payment._id}. Reverting business logic.`);
-            if (payment.planId.startsWith("owner_")) {
-                await activateOwnerBusinessLogic(null, payment.userId.toString(), "owner_free");
-            } else if (payment.planId.startsWith("tenant_")) {
-                await activateTenantBusinessLogic(null, payment.userId.toString(), "tenant_free");
-            }
+    // Update payment status to reflect dispute state
+    await PaymentEntity.findByIdAndUpdate(payment._id, { status: event.type.replace('.', '_') });
 
-            const user = await User.findById(payment.userId);
-            if (user?.deviceToken) {
+    if (event.type === 'dispute.opened' || event.type === 'dispute.lost' || event.type === 'dispute.accepted') {
+        console.log(`Dispute opened/lost/accepted. Reverting business logic for user: ${payment.userId}`);
+
+        if (payment.planId.startsWith("owner_")) {
+            await activateOwnerBusinessLogic(null, payment.userId.toString(), "owner_free");
+        } else if (payment.planId.startsWith("tenant_")) {
+            await activateTenantBusinessLogic(null, payment.userId.toString(), "tenant_free");
+        }
+
+        const user = await User.findById(payment.userId);
+        if (user?.deviceToken) {
+            try {
                 await sendPushNotification(
                     user.deviceToken,
-                    "Refund Processed",
-                    "Your payment has been successfully refunded. Your account has been moved to the Free plan."
+                    "Subscription Update",
+                    "There is an issue with your payment. Your account has been moved to the Free plan while we investigate."
                 );
+            } catch (err) {
+                console.error("Failed to send push notification", err);
             }
-        } else if (event.type === 'refund.failed') {
-            console.error(`Refund failed for payment: ${payment._id}. Reason: ${data.reason || data.failure_reason}`);
         }
-    } else {
-        console.error(`Refund event received but no matching payment found. Gateway Payment ID: ${gatewayPaymentId}`);
+    } else if (event.type === 'dispute.won' || event.type === 'dispute.cancelled') {
+        console.log(`Dispute won/cancelled. Manual review recommended.`);
     }
 };
 
@@ -491,6 +452,8 @@ export const dodoWebhookHandler = async (req: Request, res: Response) => {
             await handleSubscriptionEvent(event, data);
         } else if (event.type.startsWith('refund.')) {
             await handleRefundEvent(event, data);
+        } else if (event.type.startsWith('dispute.')) {
+            await handleDisputeEvent(event, data);
         }
 
         return res.status(200).send("OK");
