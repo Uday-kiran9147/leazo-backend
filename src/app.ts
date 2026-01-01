@@ -123,18 +123,23 @@ app.get("/api/subscription-status", async (req: Request, res: Response) => {
 app.use(globalErrorHandler);
 
 
-// async function startCyclicFunc() {
-//   setInterval(async () => {
-//     try {
-//       await axios.get('https://leazo-server.onrender.com/').then((res)=>{
-//         console.log(res.status);
-//       });
-//     } catch (error) {
-//       console.error(`Error in cyclic function: ${error}`);
-//     }
-//   }, 1000 * 60 *10); // 10 minutes
-// }
-// startCyclicFunc();
+async function startCyclicFunc() {
+  const SERVER_URL = process.env.SERVER_URL || 'https://leazo-c0dcckatczfpdrg6.southindia-01.azurewebsites.net';
+  setInterval(async () => {
+    try {
+      await axios.get(SERVER_URL).then((res) => {
+        console.log(`Keep-alive ping status: ${res.status}`);
+      });
+    } catch (error) {
+      console.error(`Error in cyclic function: ${error}`);
+    }
+  }, 1000 * 60*10); // 10 minutes
+}
+
+if (process.env.NODE_ENV !== 'test') {
+  console.log("Starting cyclic function");
+  startCyclicFunc();
+}
 
 // Export app for testing
 export default app;
@@ -142,10 +147,10 @@ export default app;
 if (process.env.NODE_ENV !== 'test') {
   app.listen(PORT, () => {
     console.log(`Server is running on port http://localhost:${PORT}`);
-    const memoryUsage = process.memoryUsage();
-    log('Memory Usage:');
-    Object.entries(memoryUsage).forEach(([key, value]) => {
-      log(`  ${key}: ${(value / 1024 / 1024).toFixed(2)} MB`);
-    });
+    // const memoryUsage = process.memoryUsage();
+    // log('Memory Usage:');
+    // Object.entries(memoryUsage).forEach(([key, value]) => {
+    //   log(`  ${key}: ${(value / 1024 / 1024).toFixed(2)} MB`);
+    // });
     });
 }
