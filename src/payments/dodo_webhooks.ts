@@ -343,14 +343,14 @@ const handleSubscriptionEvent = async (event: any, data: any) => {
             if (planId?.startsWith("owner_")) {
                 console.error(`Subscription failed for owner: ${owner?._id}, subscription: ${subscriptionId}. Downgrading to free.`);
                 if (owner) {
-                    await activateOwnerBusinessLogic(null, owner._id.toString(), "owner_free");
+                    // await activateOwnerBusinessLogic(null, owner._id.toString(), "owner_free");
                 }
             } else if (planId?.startsWith("tenant_") && internalPaymentId) {
-                const payment = await PaymentEntity.findById(internalPaymentId);
-                if (payment) {
-                    console.error(`Subscription failed for tenant: ${payment.userId}, subscription: ${subscriptionId}. Downgrading to free.`);
-                    await activateTenantBusinessLogic(null, payment.userId.toString(), "tenant_free");
-                }
+                // const payment = await PaymentEntity.findById(internalPaymentId);
+                // if (payment) {
+                //     console.error(`Subscription failed for tenant: ${payment.userId}, subscription: ${subscriptionId}. Downgrading to free.`);
+                //     await activateTenantBusinessLogic(null, payment.userId.toString(), "tenant_free");
+                // }
             }
             break;
         case 'subscription.renewed':
@@ -365,10 +365,10 @@ const handleSubscriptionEvent = async (event: any, data: any) => {
             if (planId?.startsWith("owner_") && owner) {
                 console.log(`Plan changed for owner: ${owner._id} to ${planId}`);
             } else if (planId?.startsWith("tenant_") && internalPaymentId) {
-                const payment = await PaymentEntity.findById(internalPaymentId);
-                if (payment) {
-                    console.log(`Plan changed for tenant: ${payment.userId} to ${planId}`);
-                }
+                // const payment = await PaymentEntity.findById(internalPaymentId);
+                // if (payment) {
+                //     console.log(`Plan changed for tenant: ${payment.userId} to ${planId}`);
+                // }
             }
             break;
         case 'subscription.expired':
