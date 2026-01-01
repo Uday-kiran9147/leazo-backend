@@ -24,12 +24,14 @@ export class DodoPaymentsStrategy implements IPaymentStrategy {
         if (!productId) {
             throw new Error(`Invalid planId: ${planId}`);
         }
+        const front = process.env.DODO_RETURN_URL ?? 'https://leazo.vercel.app/dodo-return';
         const session = await dodosession.checkoutSessions.create({
             product_cart: [
                 {
                     product_id: productId , quantity: 1
                 }
             ],
+            feature_flags: { redirect_immediately: true },
             customer: {
                 name: name,
                 email: email,
@@ -39,7 +41,7 @@ export class DodoPaymentsStrategy implements IPaymentStrategy {
                 productId,
                 planId                
             },
-            return_url: process.env.DODO_RETURN_URL || 'https://leazo.vercel.app',
+            return_url: `${front}?internal_payment_id=${encodeURIComponent(paymentId)}`,
         });
 
         if (!session.checkout_url) {
