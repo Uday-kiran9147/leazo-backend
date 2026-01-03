@@ -437,16 +437,18 @@ export const toggleIsActiveAndUpdateOwnerUsage = async (req: Request, res: Respo
             );
         }
 
+        const wasActive = portion.isActive;
+
         portion.isActive = isActive;
         await portion.save();
 
-        if (isActive) {
+        if (!wasActive && isActive) {
             owner.usage.activeListings += 1;
-        } else {
-            owner.usage.activeListings = Math.max(0, owner.usage.activeListings - 1);
         }
 
-        await owner.save();
+        if (wasActive && !isActive) {
+            owner.usage.activeListings -= 1;
+        }
 
         return res.status(200).json(
             new ApiResponse(200, "Portion status updated successfully",null)

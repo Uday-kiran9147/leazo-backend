@@ -471,7 +471,7 @@ export const revealPortionContact = async (req: Request, res: Response) => {
       // 1. In-app notification
       await (Notification as any).createNotification(
         owner.userId,
-        "Contact Revealed! 📞",
+        "Contact viewed! 📞",
         `${tenant.firstName} viewed your contact for ${portion.title}.`,
         "info"
       );
