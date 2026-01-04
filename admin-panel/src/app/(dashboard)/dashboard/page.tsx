@@ -65,22 +65,27 @@ export default function DashboardPage() {
   return (
     <div className="space-y-12">
       <header>
-        <h1 className="text-2xl font-bold text-white tracking-tight">DASHBOARD</h1>
-        <p className="text-white/30 text-xs uppercase tracking-widest mt-1">Platform overview and performance</p>
+        <h1 className="text-2xl font-bold text-white tracking-tight">OVERVIEW</h1>
+        <p className="text-white/40 text-sm mt-1">A quick summary of your platform's activity</p>
       </header>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {statCards.map((stat) => (
           <div
             key={stat.label}
-            className="p-6 rounded-2xl border border-white/5 bg-white/[0.01] flex flex-col gap-4"
+            className="p-6 rounded-2xl border border-white/10 bg-white/[0.02] flex flex-col gap-4 hover:border-white/20 transition-colors shadow-sm"
           >
             <div className="flex items-center justify-between">
-              <stat.icon className="w-4 h-4 text-white/20" />
-              <div className="text-[#00ff00] text-[10px] font-bold tracking-widest uppercase">Live</div>
+              <div className="p-2 bg-white/5 rounded-lg">
+                <stat.icon className="w-4 h-4 text-[#00ff00]" />
+              </div>
+              <div className="flex items-center gap-1.5">
+                <div className="w-1.5 h-1.5 rounded-full bg-[#00ff00] animate-pulse" />
+                <span className="text-white/40 text-[10px] font-bold uppercase tracking-wider">Active</span>
+              </div>
             </div>
             <div>
-              <p className="text-white/30 text-[10px] font-bold uppercase tracking-widest">{stat.label}</p>
+              <p className="text-white/40 text-xs font-medium">{stat.label}</p>
               <h2 className="text-3xl font-bold text-white mt-1 tracking-tight">{stat.value}</h2>
             </div>
           </div>
@@ -88,8 +93,11 @@ export default function DashboardPage() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <div className="p-8 rounded-2xl border border-white/5 bg-white/[0.01]">
-          <h3 className="text-[10px] font-bold text-white/30 mb-8 uppercase tracking-widest">User Activity</h3>
+        <div className="p-8 rounded-2xl border border-white/10 bg-white/[0.01]">
+          <div className="flex items-center justify-between mb-8">
+            <h3 className="text-sm font-bold text-white">Daily Visitors</h3>
+            <p className="text-white/30 text-[10px] uppercase font-bold tracking-wider">Last 7 Days</p>
+          </div>
           <div className="h-[280px]">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={activityData}>

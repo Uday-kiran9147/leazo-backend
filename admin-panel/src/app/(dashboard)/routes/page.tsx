@@ -174,6 +174,8 @@ export default function RoutesPage() {
                 <div className="grid grid-cols-2 gap-2 pt-2">
                   <ActionButton portionId={portion._id} targetStatus="Approved" icon={Check} label="Approve" variant="approve" />
                   <ActionButton portionId={portion._id} targetStatus="Rejected" icon={X} label="Reject" variant="reject" />
+                  <ActionButton portionId={portion._id} targetStatus="Hold" icon={Pause} label="Hold" variant="hold" />
+                  <ActionButton portionId={portion._id} targetStatus="Review" icon={Clock} label="Review" variant="review" />
                 </div>
               </div>
             </motion.div>
@@ -183,82 +185,133 @@ export default function RoutesPage() {
 
       <AnimatePresence>
         {selectedPortion && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 sm:p-12">
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 md:p-8">
             <motion.div 
               initial={{ opacity: 0 }} 
               animate={{ opacity: 1 }} 
               exit={{ opacity: 0 }}
-              className="absolute inset-0 bg-black/90 backdrop-blur-sm" 
+              className="absolute inset-0 bg-black/95 backdrop-blur-xl" 
               onClick={() => setSelectedPortion(null)} 
             />
             
             <motion.div 
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
-              className="relative w-full max-w-5xl bg-black border border-white/10 rounded-3xl overflow-hidden flex flex-col md:flex-row h-full max-h-[85vh]"
+              initial={{ scale: 0.98, opacity: 0, y: 10 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.98, opacity: 0, y: 10 }}
+              className="relative w-full max-w-7xl bg-[#050505] border border-white/10 rounded-[2.5rem] overflow-hidden flex flex-col lg:flex-row h-full max-h-[92vh] shadow-[0_0_50px_-12px_rgba(0,0,0,0.5)]"
             >
               <button 
                 onClick={() => setSelectedPortion(null)}
-                className="absolute top-6 right-6 z-10 p-2 text-white/20 hover:text-white transition-colors"
+                className="absolute top-6 right-6 z-50 p-3 bg-white/5 hover:bg-white/10 text-white/40 hover:text-white rounded-full transition-all border border-white/5"
               >
                 <X className="w-5 h-5" />
               </button>
 
-              <div className="w-full md:w-1/2 h-64 md:h-auto bg-slate-900 overflow-hidden">
-                {selectedPortion.images?.[0] ? (
-                  <img src={selectedPortion.images[0]} className="w-full h-full object-cover" alt="" />
+              <div className="w-full lg:w-[55%] h-64 lg:h-auto bg-black border-r border-white/5 overflow-y-auto no-scrollbar scroll-smooth">
+                {selectedPortion.images && selectedPortion.images.length > 0 ? (
+                  <div className="flex flex-col gap-2 p-2">
+                    {selectedPortion.images.map((img, idx) => (
+                      <div key={idx} className="relative group overflow-hidden rounded-2xl">
+                        <img src={img} className="w-full object-cover min-h-[400px] transition-transform duration-700 group-hover:scale-105" alt="" />
+                        <div className="absolute top-4 left-4 px-3 py-1 bg-black/50 backdrop-blur-md rounded-lg text-[8px] font-bold text-white/50 uppercase tracking-widest">CAM_{idx + 1}</div>
+                      </div>
+                    ))}
+                  </div>
                 ) : (
-                  <img src="/placeholder.png" className="w-full h-full object-cover opacity-20" alt="" />
+                    <div className="w-full h-full flex flex-col items-center justify-center gap-6 opacity-20">
+                      <img src="/placeholder.png" alt="" className="w-48 grayscale" />
+                      <p className="text-[10px] font-bold tracking-[0.4em] uppercase">No Media Input</p>
+                    </div>
                 )}
               </div>
 
-              <div className="flex-1 p-10 md:p-16 overflow-y-auto space-y-10 no-scrollbar">
-                <div className="space-y-4">
-                  <div className="text-[#00ff00] text-[9px] font-bold uppercase tracking-[0.2em] mb-4 border-l-2 border-[#00ff00] pl-4">MODERATION UNIT</div>
-                  <h2 className="text-4xl font-bold text-white tracking-tighter uppercase">{selectedPortion.title}</h2>
-                  <div className="flex items-center gap-2 text-white/30 text-sm font-medium uppercase tracking-widest">
-                    <MapPin className="w-4 h-4" />
-                    <span>{selectedPortion.address?.locality}, {selectedPortion.address?.city}</span>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="p-6 border border-white/5 rounded-2xl bg-white/[0.01]">
-                    <p className="text-white/20 text-[8px] font-bold uppercase tracking-widest mb-1">Index Price</p>
-                    <p className="text-[#00ff00] font-bold text-2xl tracking-tighter">{formatCurrency(selectedPortion.price)}</p>
-                  </div>
-                  <div className="p-6 border border-white/5 rounded-2xl bg-white/[0.01]">
-                    <p className="text-white/20 text-[8px] font-bold uppercase tracking-widest mb-1">Portion ID</p>
-                    <p className="text-white/80 font-bold text-2xl tracking-tighter">{selectedPortion.portionNumber || 'N/A'}</p>
-                  </div>
-                </div>
-
-                <div className="space-y-3">
-                  <h4 className="text-[9px] font-bold text-white/20 uppercase tracking-widest">Description</h4>
-                  <p className="text-white/60 leading-relaxed font-medium text-sm">{selectedPortion.description || 'Null'}</p>
-                </div>
-
-                <div className="p-8 border border-white/5 rounded-3xl bg-white/[0.01] flex items-center justify-between">
-                  <div className="flex items-center gap-6">
-                    <div className="w-12 h-12 rounded-xl bg-white/5 flex items-center justify-center">
-                      <UserIcon className="w-5 h-5 text-white/40" />
+              <div className="flex-1 flex flex-col h-full">
+                <div className="flex-1 p-8 md:p-12 overflow-y-auto no-scrollbar space-y-10">
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-3">
+                      <div className="px-3 py-1 bg-[#00ff00]/10 border border-[#00ff00]/20 rounded-md text-[9px] font-black text-[#00ff00] uppercase tracking-[0.2em]">VERIFICATION_UNIT</div>
+                      <div className="h-px flex-1 bg-white/5" />
                     </div>
-                    <div>
-                      <p className="text-white font-bold text-lg uppercase tracking-tight">{selectedPortion.contact?.name || 'Owner'}</p>
-                      <p className="text-white/20 text-[10px] font-bold tracking-widest uppercase">{selectedPortion.contact?.phoneNumber || 'Private'}</p>
+                    <h2 className="text-4xl font-black text-white tracking-tighter uppercase leading-[0.9]">{selectedPortion.title}</h2>
+                    <div className="flex items-center gap-2 text-white/30 text-xs font-bold uppercase tracking-widest">
+                      <MapPin className="w-4 h-4 text-[#00ff00]/50" />
+                      <span>{selectedPortion.address?.locality || 'HYD'}, {selectedPortion.address?.city || 'TELANGANA'}</span>
                     </div>
                   </div>
-                  {selectedPortion.contact?.phoneNumber && (
-                    <a href={`tel:${selectedPortion.contact.phoneNumber}`} className="p-4 bg-white/5 hover:bg-[#00ff00] text-white hover:text-black rounded-2xl transition-all">
-                      <Phone className="w-5 h-5" />
-                    </a>
-                  )}
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="p-6 bg-white/[0.02] border border-white/5 rounded-2xl">
+                      <p className="text-white/20 text-[9px] font-bold uppercase tracking-widest mb-2">Rent Index</p>
+                      <p className="text-[#00ff00] font-black text-3xl tracking-tighter">{formatCurrency(selectedPortion.price)}</p>
+                    </div>
+                    <div className="p-6 bg-white/[0.02] border border-white/5 rounded-2xl">
+                      <p className="text-white/20 text-[9px] font-bold uppercase tracking-widest mb-2">Target Portion</p>
+                      <p className="text-white font-black text-3xl tracking-tighter">#{selectedPortion.portionNumber || 'N/A'}</p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-6">
+                    <div className="grid grid-cols-1 gap-3">
+                      {[
+                        { label: 'Floor Level', value: selectedPortion.floor || 'N/A' },
+                      ].map((spec) => (
+                        <div key={spec.label} className="py-4 border-b border-white/5">
+                          <p className="text-white/20 text-[8px] font-bold uppercase tracking-widest mb-1">{spec.label}</p>
+                          <p className="text-white font-bold text-xs uppercase tracking-tight">{spec.value}</p>
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="space-y-3">
+                      <p className="text-white/20 text-[9px] font-bold uppercase tracking-widest">Feature Matrix</p>
+                      <div className="flex flex-wrap gap-2">
+                        {selectedPortion.amenities && selectedPortion.amenities.length > 0 ? (
+                          selectedPortion.amenities.map(amenity => (
+                            <span key={amenity} className="px-4 py-2 bg-white/5 border border-white/5 rounded-xl text-[9px] font-bold text-white/50 uppercase tracking-widest">{amenity}</span>
+                          ))
+                        ) : (
+                          <span className="text-white/10 text-[9px] italic">No attributes listed</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="p-8 bg-[#00ff00]/[0.02] border border-[#00ff00]/10 rounded-3xl flex items-center justify-between">
+                    <div className="flex items-center gap-6">
+                      <div className="w-14 h-14 bg-[#00ff00]/10 rounded-2xl flex items-center justify-center">
+                        <UserIcon className="w-6 h-6 text-[#00ff00]" />
+                      </div>
+                      <div>
+                        <p className="text-white font-bold text-xl uppercase tracking-tighter">{selectedPortion.contact?.name || 'Verified Owner'}</p>
+                        <p className="text-[#00ff00]/40 text-[10px] font-bold tracking-[0.2em] uppercase">{selectedPortion.contact?.phoneNumber || 'DATA_PROTECTED'}</p>
+                      </div>
+                    </div>
+                    {selectedPortion.contact?.phoneNumber && (
+                      <a href={`tel:${selectedPortion.contact.phoneNumber}`} className="p-4 bg-white/5 hover:bg-[#00ff00] text-white hover:text-black rounded-2xl transition-all border border-white/5">
+                        <Phone className="w-5 h-5" />
+                      </a>
+                    )}
+                  </div>
+
+                  <div className="space-y-4">
+                    <p className="text-white/20 text-[9px] font-bold uppercase tracking-widest">System Narrative</p>
+                    <p className="text-white/60 leading-relaxed text-sm font-medium">{selectedPortion.description || 'No system narrative provided.'}</p>
+                  </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <button onClick={() => updateStatus(selectedPortion._id, 'Approved')} className="bg-[#00ff00] text-black font-bold py-5 rounded-2xl uppercase tracking-[0.2em] text-[11px] hover:bg-[#00dd00] transition-colors">Approve</button>
-                  <button onClick={() => updateStatus(selectedPortion._id, 'Rejected')} className="border border-red-500/20 text-red-500 font-bold py-5 rounded-2xl uppercase tracking-[0.2em] text-[11px] hover:bg-red-500/5 transition-colors">Reject</button>
+                <div className="p-8 border-t border-white/5 bg-black/20 flex gap-4">
+                  <button
+                    onClick={() => updateStatus(selectedPortion._id, 'Approved')}
+                    className="flex-[2] bg-[#00ff00] hover:bg-[#00dd00] text-black font-black py-5 rounded-2xl uppercase tracking-[0.2em] text-[11px] shadow-[0_10px_30px_-10px_rgba(0,255,0,0.3)] transition-all active:scale-95"
+                  >
+                    AUTHORIZE_APPROVAL
+                  </button>
+                  <button
+                    onClick={() => setSelectedPortion(null)}
+                    className="flex-1 border border-white/10 text-white/40 hover:text-white font-bold py-5 rounded-2xl uppercase tracking-[0.2em] text-[11px] hover:bg-white/5 transition-all"
+                  >
+                    DISMISS
+                  </button>
                 </div>
               </div>
             </motion.div>
