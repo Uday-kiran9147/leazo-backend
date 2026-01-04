@@ -12,6 +12,29 @@ import { MongoosePortionRepository } from "../repositories/PortionRepository";
 import { MongooseOwnerRepository } from "../repositories/OwnerRepository";
 import { PortionService } from "../services/PortionService";
 
+export const getAllUsers = async (req: Request, res: Response) => {
+    try {
+        const users = await User.find({}).sort({ createdAt: -1 });
+        return res.status(200).json(new ApiResponse(200, "Users fetched successfully.", users));
+    } catch (error) {
+        const apiError = handleError(error, req, res);
+        return res.status(apiError.status).json(apiError);
+    }
+}
+
+export const getUserRolesDistribution = async (req: Request, res: Response) => {
+    try {
+        const distribution = await User.aggregate([
+            { $group: { _id: "$role", value: { $sum: 1 } } },
+            { $project: { name: "$_id", value: 1, _id: 0 } }
+        ]);
+        return res.status(200).json(new ApiResponse(200, "User roles distribution fetched successfully.", distribution));
+    } catch (error) {
+        const apiError = handleError(error, req, res);
+        return res.status(apiError.status).json(apiError);
+    }
+}
+
 const portionRepository = new MongoosePortionRepository();
 const ownerRepository = new MongooseOwnerRepository();
 const portionService = new PortionService(portionRepository, ownerRepository);
@@ -25,6 +48,8 @@ interface DashboardStats {
     rejectedPortions: number;
     occupancyRate?: string;
     totalBuildings?: number;
+    totalUsers?: number;
+    totalOwners?: number;
 }
 
 export const getDashboardStats = async (_: Request, res: Response) => {
@@ -32,16 +57,10 @@ export const getDashboardStats = async (_: Request, res: Response) => {
     
     try {
         const stats: DashboardStats[] = await Portion.aggregate([
-            // Optional: Add this if you only want active listings
-            // {
-            //     $match: {
-            //         isActive: true
-            //     }
-            // },
             {
                 $group: {
-                    _id: null, // Grouping by null to get a single result
-                    totalListings: { $sum: 1 }, // Counts all documents
+                    _id: null,
+                    totalListings: { $sum: 1 },
                     activeListings: { 
                         $sum: { 
                             $cond: [
@@ -101,7 +120,10 @@ export const getDashboardStats = async (_: Request, res: Response) => {
             }
         ]);
 
-        // Default values if no documents exist
+        const totalBuildings = await Building.countDocuments({});
+        const totalUsers = await User.countDocuments({});
+        const totalOwners = await Owner.countDocuments({});
+
         const defaultStats: DashboardStats = {
             totalListings: 0,
             activeListings: 0,
@@ -110,24 +132,19 @@ export const getDashboardStats = async (_: Request, res: Response) => {
             occupiedPortions: 0,
             rejectedPortions: 0,
             occupancyRate: "0%",
-            totalBuildings: 0,
+            totalBuildings,
+            totalUsers,
+            totalOwners
         };
 
-        const resultStats = stats.length > 0 ? stats[0] : defaultStats;
+        const resultStats = stats.length > 0 ? { ...stats[0], totalBuildings, totalUsers, totalOwners } : defaultStats;
 
-        // Calculate occupancy rate (only counting approved portions)
         const approvedPortions = resultStats.activeListings + resultStats.occupiedPortions;
-        const occupancyRate = approvedPortions > 0 
-        ? `${((resultStats.occupiedPortions / approvedPortions) * 100).toFixed(2)}%` 
-        : "0%";
-        // Fetch total buildings count
-        const totalBuildings = await Building.countDocuments({});
-        resultStats.totalBuildings = totalBuildings;
+        resultStats.occupancyRate = approvedPortions > 0
+            ? `${((resultStats.occupiedPortions / approvedPortions) * 100).toFixed(2)}%`
+            : "0%";
 
-        resultStats.occupancyRate = occupancyRate;
-        var apiResponse:ApiResponse = new ApiResponse(200, "Dashboard statistics fetched successfully.", resultStats);
-        
-        return res.status(200).json(apiResponse);
+        return res.status(200).json(new ApiResponse(200, "Dashboard statistics fetched successfully.", resultStats));
 
     } catch (error) {
         console.error(`[${new Date().toISOString()}] Error fetching dashboard stats:`, error);
@@ -137,6 +154,7 @@ export const getDashboardStats = async (_: Request, res: Response) => {
         });
     }
 };
+
 
 async function clearPortionsCache() {
     console.log("Portions cache cleared.");
@@ -154,6 +172,9 @@ export const UpdateRole = async (req: Request, res: Response) => {
     const { role } = req.body;
     if (!role || !id) {
         return res.status(400).json({ message: "Role and ID are required" });
+    }
+    if (req.body.user.role !== 'Admin') {
+        return res.status(403).json({ message: "Only Admins can update user roles." });
     }
     if (req.body.user.role === role) {
         return res.status(400).json({ message: "User already has this role" });

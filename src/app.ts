@@ -19,6 +19,7 @@ dotenv.config({ path: path.resolve(process.cwd(), envFile) });
 // Also load general .env if it exists (as a fallback or for shared variables)
 dotenv.config();
 import express from 'express';
+import cors from 'cors';
 import axios from 'axios';
 import userRoutes from './routes/userRoutes';
 import authRoutes from './routes/authRoutes';
@@ -58,6 +59,7 @@ const PORT = process.env.PORT || 3000;
 
 
 // Middleware
+app.use(cors());
 app.use('/v1/api/webhooks', webhookRouter);
 app.use(express.json());
 

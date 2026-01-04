@@ -22,11 +22,15 @@ import { User } from "../models/user.model";
  */
 export const auth = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const token = req.headers.authorization;
+        let token = req.headers.authorization;
 
         if (!token) {
             // code checked
             return res.status(400).send({ error: "Please provide token" });
+        }
+
+        if (token.startsWith("Bearer ")) {
+            token = token.slice(7, token.length);
         }
         const secretKey = process.env.JWT_SECRET as string;
         if(!secretKey){

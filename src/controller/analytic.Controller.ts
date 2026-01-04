@@ -1,3 +1,4 @@
+import { Portion } from "../models/portion.model";
 import { UserActivity } from "../models/admin/userActivity";
 
 class AnalyticsService {
@@ -92,6 +93,48 @@ class AnalyticsService {
 
     // Similar implementations for day and year
     return 0;
+  }
+
+  async getWeeklyActivity(): Promise<{ name: string, users: number }[]> {
+    const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    const now = new Date();
+    const result = [];
+
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(now);
+      d.setDate(now.getDate() - i);
+      const { count } = await this.getDAU(d);
+      result.push({
+        name: days[d.getDay()],
+        users: count
+      });
+    }
+    return result;
+  }
+
+  async getWeeklyListings(): Promise<{ name: string, listings: number }[]> {
+    const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    const now = new Date();
+    const result = [];
+
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(now);
+      d.setDate(now.getDate() - i);
+      const start = new Date(d);
+      start.setHours(0, 0, 0, 0);
+      const end = new Date(d);
+      end.setHours(23, 59, 59, 999);
+
+      const count = await Portion.countDocuments({
+        createdAt: { $gte: start, $lte: end }
+      });
+
+      result.push({
+        name: days[d.getDay()],
+        listings: count
+      });
+    }
+    return result;
   }
 }
 
