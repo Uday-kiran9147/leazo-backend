@@ -26,7 +26,6 @@ interface IUser extends Document, IUserMethods {
   email: string;
   password: string;
   phoneNumber: string;
-  properties: string[];
   deviceToken?: string;
   role?: string;
   isOwner: boolean;
@@ -70,7 +69,6 @@ const userSchema = new Schema<IUser>({
   },
   password: { type: String, required: true },
   phoneNumber: { type: String, },
-  properties: [{ type: String }],
   deviceToken: { type: String },
   isOwner: { type: Boolean, default: false },
   role: { type: String, default: "User" },
