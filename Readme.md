@@ -88,7 +88,7 @@ REDIS_URL=your_upstash_redis_url
 REDIS_SECRET=your_upstash_redis_token
 
 # PAYMENTS
-DODO_API_KEY=your_dodo_key
+
 ```
 
 ### 4. Running the App

@@ -1,4 +1,5 @@
 
+/// TODO: Update the plan products with razorpay plan ids
 const OWNER_PLAN_PRODUCTS_DEVELOPMENT= {
   owner_free: null,
   owner_starter: "pdt_0NUtXhgn0YnW1ff0k2253",

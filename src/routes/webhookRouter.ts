@@ -1,7 +1,12 @@
-import express,{Router} from 'express';
-import { dodoWebhookHandler } from '../payments/dodo_webhooks';
+// ============================================================================
+// FILE: src/routes/webhookRouter.ts
+// Purpose: Webhook routes (no auth, raw body for signature verification)
+// ============================================================================
+
+import express, { Router } from 'express';
+import { handleWebhook } from '../controller/razorpay.controller';
 
 export const webhookRouter = Router();
 
-
-webhookRouter.post('/dodo',express.raw({ type: "application/json" }), dodoWebhookHandler);
+// Razorpay webhook - needs raw JSON body for signature verification
+webhookRouter.post('/razorpay', express.json(), handleWebhook);

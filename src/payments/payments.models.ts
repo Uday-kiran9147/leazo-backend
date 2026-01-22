@@ -4,7 +4,7 @@ export interface IPayment extends mongoose.Document{
   _id: mongoose.Types.ObjectId;
   userId: mongoose.Types.ObjectId;
 
-  gateway: "dodo" | "juspay";
+  gateway: "juspay" | "razorpay";
   gatewayPaymentId?: string;
   gatewaySessionId?: string;
   gatewaySubscriptionId?: string;

@@ -1,11 +1,12 @@
 import express,{Router} from 'express';
 import { auth } from '../middleware/auth.middleware';
-import { getCheckoutSessionMiddleware } from '../middleware/payment.middleware';
-import { getCheckoutSession} from '../controller/payments.Controller';
-import { dodoWebhookHandler } from '../payments/dodo_webhooks';
 
+import { createSubscription as createRazorpaySubscription, verifySubscription as verifyRazorpaySubscription } from '../controller/razorpay.controller';
 export const paymentsRouter = Router();
 
 // Define payment routes here
 
-paymentsRouter.get('/dodo/create-checkout-session',auth,getCheckoutSessionMiddleware, getCheckoutSession);
+
+
+paymentsRouter.post('/razorpay/create-order', auth, createRazorpaySubscription);
+paymentsRouter.post('/razorpay/verify-payment', auth, verifyRazorpaySubscription);
