@@ -4,17 +4,14 @@
 // ============================================================================
 
 import { Request, Response } from 'express';
-import { subscriptionService, webhookService } from '../services/razorpay';
+import { orderService, webhookService } from '../services/razorpay';
 import { RAZORPAY_CONFIG } from '../config/razorpayConfig';
 
-
 /**
- * Create a new subscription
- * POST v1/api/payments/razorpay/create-subscription
+ * Create a new order
+ * POST /api/v1/payments/razorpay/order
  */
-export const createSubscription = async (req: Request, res: Response) => {
-    // log url
-    console.log(req.originalUrl);
+export const createOrder = async (req: Request, res: Response) => {
     try {
         var user = (req.body.user);
         req.body.razorpayData = {
@@ -24,66 +21,56 @@ export const createSubscription = async (req: Request, res: Response) => {
             phone: req.body.user.phoneNumber,
             totalCount: req.body.totalCount || 12
         }
-        const { planId, email, name, phone, totalCount } = req.body.razorpayData;
+        const { planId, email, name, phone } = req.body.razorpayData;
         const userId = (req.body as any).user?.id;
 
         if (!planId || !email || !name) {
-            // log
-            console.error('[Razorpay Controller] Missing required fields for subscription creation');
             return res.status(400).json({ 
                 success: false, 
                 error: 'Missing required fields: planId, email, name' 
             });
         }
 
-        const result = await subscriptionService.createSubscription({
+        const result = await orderService.createOrder({
             userId,
             planId,
             email,
             name,
             phone,
-            totalCount
         });
-        // log
-        console.log('[Razorpay Controller] Subscription created successfully:', result.subscriptionId);
+
         res.status(200).json({
             success: true,
-            data: {
-                subscriptionId: result.subscriptionId,
-                shortUrl: result.shortUrl,
-                key: RAZORPAY_CONFIG.key_id
-            }
+            data: result,
         });
     } catch (error: any) {
-        console.error('[Razorpay Controller] createSubscription error:', error);
+        console.error('[Razorpay Controller] createOrder error:', error);
         res.status(500).json({ 
             success: false, 
-            error: error.message || 'Failed to create subscription' 
+            error: error.message || 'Failed to create order' 
         });
     }
 };
 
 /**
- * Verify subscription payment
- * POST /api/v1/payments/razorpay/subscription/verify
+ * Verify payment after checkout
+ * POST /api/v1/payments/razorpay/verify
  */
-export const verifySubscription = async (req: Request, res: Response) => {
-    // log
-    console.log(req.originalUrl);
+export const verifyPayment = async (req: Request, res: Response) => {
     try {
-        const { razorpay_payment_id, razorpay_subscription_id, razorpay_signature } = req.body;
+        const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body;
 
-        if (!razorpay_payment_id || !razorpay_subscription_id || !razorpay_signature) {
+        if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
             return res.status(400).json({ 
                 success: false, 
                 error: 'Missing verification parameters' 
             });
         }
 
-        const isValid = subscriptionService.verifySignature({
+        const isValid = orderService.verifyPayment({
+            razorpayOrderId: razorpay_order_id,
             razorpayPaymentId: razorpay_payment_id,
-            razorpaySubscriptionId: razorpay_subscription_id,
-            razorpaySignature: razorpay_signature
+            razorpaySignature: razorpay_signature,
         });
 
         if (!isValid) {
@@ -92,11 +79,13 @@ export const verifySubscription = async (req: Request, res: Response) => {
                 error: 'Invalid payment signature' 
             });
         }
-        // log
-        console.log('[Razorpay Controller] Subscription payment verified successfully');
+
+        // Mark payment as completed
+        await orderService.completePayment(razorpay_order_id, razorpay_payment_id);
+
         res.status(200).json({ success: true, verified: true });
     } catch (error: any) {
-        console.error('[Razorpay Controller] verifySubscription error:', error);
+        console.error('[Razorpay Controller] verifyPayment error:', error);
         res.status(500).json({ 
             success: false, 
             error: error.message || 'Verification failed' 
@@ -105,150 +94,76 @@ export const verifySubscription = async (req: Request, res: Response) => {
 };
 
 /**
- * Get subscription details
- * GET /api/v1/payments/razorpay/subscription/:subscriptionId
+ * Get order details
+ * GET /api/v1/payments/razorpay/order/:orderId
  */
-export const getSubscription = async (req: Request, res: Response) => {
+export const getOrder = async (req: Request, res: Response) => {
     try {
-        const { subscriptionId } = req.params;
-        const subscription = await subscriptionService.getSubscription(subscriptionId);
+        const { orderId } = req.params;
+        const order = await orderService.getOrder(orderId);
         
-        res.status(200).json({ success: true, data: subscription });
+        res.status(200).json({ success: true, data: order });
     } catch (error: any) {
-        console.error('[Razorpay Controller] getSubscription error:', error);
+        console.error('[Razorpay Controller] getOrder error:', error);
         res.status(500).json({ 
             success: false, 
-            error: error.message || 'Failed to fetch subscription' 
+            error: error.message || 'Failed to fetch order' 
         });
     }
 };
 
 /**
- * Get current user's subscription
- * GET /api/v1/payments/razorpay/subscription/me
+ * Get user's payment history
+ * GET /api/v1/payments/razorpay/history
  */
-export const getMySubscription = async (req: Request, res: Response) => {
+export const getPaymentHistory = async (req: Request, res: Response) => {
     try {
         const userId = (req as any).user?.id || (req as any).userId;
-        const result = await subscriptionService.getUserSubscription(userId);
+        const limit = parseInt(req.query.limit as string) || 10;
+        
+        const payments = await orderService.getUserPayments(userId, limit);
 
-        if (!result) {
-            return res.status(404).json({ 
-                success: false, 
-                error: 'No active subscription found' 
-            });
-        }
-
-        res.status(200).json({ success: true, data: result });
+        res.status(200).json({ success: true, data: payments });
     } catch (error: any) {
-        console.error('[Razorpay Controller] getMySubscription error:', error);
+        console.error('[Razorpay Controller] getPaymentHistory error:', error);
         res.status(500).json({ 
             success: false, 
-            error: error.message || 'Failed to fetch subscription' 
+            error: error.message || 'Failed to fetch payment history' 
         });
     }
 };
 
 /**
- * Cancel subscription
- * POST /api/v1/payments/razorpay/subscription/cancel
+ * Refund a payment
+ * POST /api/v1/payments/razorpay/refund
  */
-export const cancelSubscription = async (req: Request, res: Response) => {
+export const refundPayment = async (req: Request, res: Response) => {
     try {
-        const { subscriptionId, cancelAtCycleEnd = true } = req.body;
+        const { paymentId, amount, notes } = req.body;
 
-        if (!subscriptionId) {
+        if (!paymentId) {
             return res.status(400).json({ 
                 success: false, 
-                error: 'subscriptionId is required' 
+                error: 'paymentId is required' 
             });
         }
 
-        const result = await subscriptionService.cancelSubscription(subscriptionId, cancelAtCycleEnd);
-        res.status(200).json({ success: true, data: result });
+        const refund = await orderService.refundPayment(paymentId, amount, notes);
+        res.status(200).json({ success: true, data: refund });
     } catch (error: any) {
-        console.error('[Razorpay Controller] cancelSubscription error:', error);
+        console.error('[Razorpay Controller] refundPayment error:', error);
         res.status(500).json({ 
             success: false, 
-            error: error.message || 'Failed to cancel subscription' 
-        });
-    }
-};
-
-/**
- * Pause subscription
- * POST /api/v1/payments/razorpay/subscription/pause
- */
-export const pauseSubscription = async (req: Request, res: Response) => {
-    try {
-        const { subscriptionId } = req.body;
-        const result = await subscriptionService.pauseSubscription(subscriptionId);
-        res.status(200).json({ success: true, data: result });
-    } catch (error: any) {
-        console.error('[Razorpay Controller] pauseSubscription error:', error);
-        res.status(500).json({ 
-            success: false, 
-            error: error.message || 'Failed to pause subscription' 
-        });
-    }
-};
-
-/**
- * Resume subscription
- * POST /api/v1/payments/razorpay/subscription/resume
- */
-export const resumeSubscription = async (req: Request, res: Response) => {
-    try {
-        const { subscriptionId } = req.body;
-        const result = await subscriptionService.resumeSubscription(subscriptionId);
-        res.status(200).json({ success: true, data: result });
-    } catch (error: any) {
-        console.error('[Razorpay Controller] resumeSubscription error:', error);
-        res.status(500).json({ 
-            success: false, 
-            error: error.message || 'Failed to resume subscription' 
-        });
-    }
-};
-
-/**
- * Change subscription plan
- * POST /api/v1/payments/razorpay/subscription/change-plan
- */
-export const changePlan = async (req: Request, res: Response) => {
-    try {
-        const { subscriptionId, newPlanId, scheduleChangeAt = 'cycle_end' } = req.body;
-
-        if (!subscriptionId || !newPlanId) {
-            return res.status(400).json({ 
-                success: false, 
-                error: 'subscriptionId and newPlanId are required' 
-            });
-        }
-
-        const result = await subscriptionService.updateSubscription(
-            subscriptionId, 
-            newPlanId, 
-            scheduleChangeAt
-        );
-        res.status(200).json({ success: true, data: result });
-    } catch (error: any) {
-        console.error('[Razorpay Controller] changePlan error:', error);
-        res.status(500).json({ 
-            success: false, 
-            error: error.message || 'Failed to change plan' 
+            error: error.message || 'Failed to process refund' 
         });
     }
 };
 
 /**
  * Handle Razorpay webhooks
- * https://leazo-c0dcckatczfpdrg6.southindia-01.azurewebsites.net/api/v1/webhooks/razorpay
- * POST /v1/api/webhooks/razorpay
+ * POST /api/v1/webhooks/razorpay
  */
 export const handleWebhook = async (req: Request, res: Response) => {
-    // log webhook
-    console.log('[Razorpay Webhook] Received webhook:', req.body);
     try {
         const signature = req.headers['x-razorpay-signature'] as string;
         
@@ -256,7 +171,6 @@ export const handleWebhook = async (req: Request, res: Response) => {
             return res.status(400).send('Missing signature');
         }
 
-        // Validate signature
         const isValid = webhookService.validateSignature(
             JSON.stringify(req.body),
             signature
@@ -267,7 +181,6 @@ export const handleWebhook = async (req: Request, res: Response) => {
             return res.status(400).send('Invalid signature');
         }
 
-        // Process the webhook
         await webhookService.processEvent(req.body);
         
         res.status(200).send('ok');

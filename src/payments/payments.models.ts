@@ -7,6 +7,7 @@ export interface IPayment extends mongoose.Document{
   gateway: "juspay" | "razorpay";
   gatewayPaymentId?: string;
   gatewaySessionId?: string;
+  orderId?: string;
   gatewaySubscriptionId?: string;
 
   settlementAmount?: number;
@@ -31,7 +32,7 @@ const paymentSchema = new Schema<IPayment>(
     gatewayPaymentId: { type: String },
     gatewaySessionId: { type: String },
     gatewaySubscriptionId: { type: String },
-
+    orderId: { type: String },
     settlementAmount: { type: Number },
     totalAmount: { type: Number },
     currency: { type: String, default: "INR" },

@@ -1,6 +1,6 @@
 // ============================================================================
 // FILE: src/services/razorpay/razorpay.webhook.service.ts
-// Purpose: Webhook handling and business logic triggers
+// Purpose: Webhook handling for order-based payments
 // ============================================================================
 
 import Razorpay from 'razorpay';
@@ -10,8 +10,8 @@ import { Owner } from '../../models/owner.model';
 import { User } from '../../models/user.model';
 import { 
     WebhookPayload, 
-    RazorpaySubscriptionEntity,
     RazorpayPaymentEntity,
+    RazorpayOrderEntity,
     RazorpayDisputeEntity,
     RazorpayDowntimeEntity,
 } from './razorpay.types';
@@ -43,22 +43,18 @@ export class RazorpayWebhookService {
         console.log(`[Razorpay Webhook] Processing event: ${event}`);
 
         const handlers: Record<string, () => Promise<void>> = {
-            // ========== Subscription Events ==========
-            'subscription.authenticated': () => this.handleSubscriptionAuthenticated(payload),
-            'subscription.activated': () => this.handleSubscriptionActivated(payload),
-            'subscription.charged': () => this.handleSubscriptionCharged(payload),
-            'subscription.pending': () => this.handleSubscriptionPending(payload),
-            'subscription.halted': () => this.handleSubscriptionHalted(payload),
-            'subscription.cancelled': () => this.handleSubscriptionCancelled(payload),
-            'subscription.completed': () => this.handleSubscriptionCompleted(payload),
-            'subscription.expired': () => this.handleSubscriptionExpired(payload),
-            'subscription.paused': () => this.handleSubscriptionPaused(payload),
-            'subscription.resumed': () => this.handleSubscriptionResumed(payload),
+            // ========== Order Events ==========
+            'order.paid': () => this.handleOrderPaid(payload),
 
             // ========== Payment Events ==========
             'payment.authorized': () => this.handlePaymentAuthorized(payload),
             'payment.captured': () => this.handlePaymentCaptured(payload),
             'payment.failed': () => this.handlePaymentFailed(payload),
+
+            // ========== Refund Events ==========
+            'refund.created': () => this.handleRefundCreated(payload),
+            'refund.processed': () => this.handleRefundProcessed(payload),
+            'refund.failed': () => this.handleRefundFailed(payload),
 
             // ========== Dispute Events ==========
             'payment.dispute.created': () => this.handleDisputeCreated(payload),
@@ -84,22 +80,66 @@ export class RazorpayWebhookService {
     }
 
     // ══════════════════════════════════════════════════════════════════════════
+    // ORDER EVENT HANDLERS
+    // ══════════════════════════════════════════════════════════════════════════
+
+    /**
+     * Order paid - order has been paid successfully
+     * This is the primary event for order completion
+     */
+    private async handleOrderPaid(payload: WebhookPayload): Promise<void> {
+        const order = payload.payload.order?.entity;
+        const payment = payload.payload.payment?.entity;
+        if (!order) return;
+
+        console.log(`[Razorpay] ✅ Order PAID: ${order.id}`);
+        console.log(`[Razorpay] Amount: ₹${order.amount / 100}, Status: ${order.status}`);
+
+        const paymentRecord = await this.findPaymentByOrderId(order.id);
+
+        if (paymentRecord) {
+            paymentRecord.status = 'completed';
+            paymentRecord.gatewayPaymentId = payment?.id;
+            paymentRecord.totalAmount = order.amount;
+            paymentRecord.settlementAmount = order.amount_paid;
+            paymentRecord.currency = order.currency;
+            paymentRecord.paymentMethod = payment?.method;
+            paymentRecord.metadata = {
+                ...paymentRecord.metadata,
+                orderStatus: order.status,
+                paidAt: new Date().toISOString(),
+                attempts: order.attempts,
+            };
+            await paymentRecord.save();
+
+            // Activate the user's plan
+            await this.activateUserPlan(paymentRecord);
+
+            // Send success notification
+            await this.notifyUserPaymentSuccess(paymentRecord);
+
+            console.log(`[Razorpay] Plan activated for user: ${paymentRecord.userId}`);
+        } else {
+            console.error(`[Razorpay] No payment record found for order: ${order.id}`);
+        }
+    }
+
+    // ══════════════════════════════════════════════════════════════════════════
     // PAYMENT EVENT HANDLERS
     // ══════════════════════════════════════════════════════════════════════════
 
     /**
-     * Payment authorized - funds are blocked on customer's account
-     * For subscriptions, this usually precedes capture
+     * Payment authorized - funds blocked on customer's account
      */
     private async handlePaymentAuthorized(payload: WebhookPayload): Promise<void> {
         const payment = payload.payload.payment?.entity;
         if (!payment) return;
 
-        console.log(`[Razorpay] Payment authorized: ${payment.id}, Amount: ₹${payment.amount / 100}`);
+        console.log(`[Razorpay] Payment AUTHORIZED: ${payment.id}`);
+        console.log(`[Razorpay] Amount: ₹${payment.amount / 100}, Method: ${payment.method}`);
 
-        // Find payment record by order_id or subscription
-        const paymentRecord = await this.findPaymentByOrderOrPaymentId(payment);
-        
+        const paymentRecord = await this.findPaymentByOrderId(payment.order_id);
+
         if (paymentRecord) {
             paymentRecord.status = 'authorized';
             paymentRecord.gatewayPaymentId = payment.id;
@@ -115,55 +155,60 @@ export class RazorpayWebhookService {
             await paymentRecord.save();
         }
 
-        // Note: For auto-capture (default in Razorpay), payment.captured follows immediately
-        // For manual capture, you need to call razorpay.payments.capture()
+        // Note: If auto-capture is enabled (default), payment.captured will follow
     }
 
     /**
-     * Payment captured - funds are transferred to your account
-     * This is when the payment is actually complete
+     * Payment captured - funds transferred to your account
+     * THIS IS THE MAIN SUCCESS EVENT
      */
     private async handlePaymentCaptured(payload: WebhookPayload): Promise<void> {
         const payment = payload.payload.payment?.entity;
         if (!payment) return;
 
-        console.log(`[Razorpay] Payment captured: ${payment.id}, Amount: ₹${payment.amount / 100}`);
+        console.log(`[Razorpay] ✅ Payment CAPTURED: ${payment.id}`);
+        console.log(`[Razorpay] Amount: ₹${payment.amount / 100}, Method: ${payment.method}`);
 
-        const paymentRecord = await this.findPaymentByOrderOrPaymentId(payment);
+        const paymentRecord = await this.findPaymentByOrderId(payment.order_id);
 
         if (paymentRecord) {
-            paymentRecord.status = 'captured';
-            paymentRecord.gatewayPaymentId = payment.id;
-            paymentRecord.totalAmount = payment.amount;
-            paymentRecord.currency = payment.currency;
-            paymentRecord.paymentMethod = payment.method;
-            paymentRecord.metadata = {
-                ...paymentRecord.metadata,
-                capturedAt: new Date().toISOString(),
-                fee: payment.fee,
-                tax: payment.tax,
-            };
-            await paymentRecord.save();
+            // Only process if not already completed (order.paid might have processed it)
+            if (paymentRecord.status !== 'completed') {
+                paymentRecord.status = 'completed';
+                paymentRecord.gatewayPaymentId = payment.id;
+                paymentRecord.totalAmount = payment.amount;
+                paymentRecord.currency = payment.currency;
+                paymentRecord.paymentMethod = payment.method;
+                paymentRecord.metadata = {
+                    ...paymentRecord.metadata,
+                    capturedAt: new Date().toISOString(),
+                    fee: payment.fee,
+                    tax: payment.tax,
+                };
+                await paymentRecord.save();
 
-            // For one-time payments (orders), activate the plan here
-            // For subscriptions, activation happens via subscription.activated webhook
-            if (!paymentRecord.gatewaySubscriptionId) {
-                await this.activateUserPlanFromPayment(paymentRecord);
+                // Activate the user's plan
+                await this.activateUserPlan(paymentRecord);
+
+                // Send success notification
+                await this.notifyUserPaymentSuccess(paymentRecord);
+
+                console.log(`[Razorpay] Plan activated for user: ${paymentRecord.userId}`);
             }
         }
     }
 
     /**
-     * Payment failed - payment was unsuccessful
+     * Payment failed - payment unsuccessful
      */
     private async handlePaymentFailed(payload: WebhookPayload): Promise<void> {
         const payment = payload.payload.payment?.entity;
         if (!payment) return;
 
-        console.log(`[Razorpay] Payment FAILED: ${payment.id}`);
+        console.log(`[Razorpay] ❌ Payment FAILED: ${payment.id}`);
         console.log(`[Razorpay] Error: ${payment.error_code} - ${payment.error_description}`);
 
-        const paymentRecord = await this.findPaymentByOrderOrPaymentId(payment);
+        const paymentRecord = await this.findPaymentByOrderId(payment.order_id);
 
         if (paymentRecord) {
             paymentRecord.status = 'failed';
@@ -185,19 +230,106 @@ export class RazorpayWebhookService {
     }
 
     // ══════════════════════════════════════════════════════════════════════════
-    // DISPUTE EVENT HANDLERS
+    // REFUND EVENT HANDLERS
     // ══════════════════════════════════════════════════════════════════════════
 
     /**
-     * Dispute created - customer raised a chargeback/dispute
+     * Refund created
      */
+    private async handleRefundCreated(payload: WebhookPayload): Promise<void> {
+        const refund = (payload.payload as any).refund?.entity;
+        const payment = payload.payload.payment?.entity;
+        if (!refund) return;
+
+        console.log(`[Razorpay] Refund CREATED: ${refund.id}`);
+        console.log(`[Razorpay] Amount: ₹${refund.amount / 100}, Payment: ${refund.payment_id}`);
+
+        const paymentRecord = await PaymentEntity.findOne({ gatewayPaymentId: refund.payment_id });
+
+        if (paymentRecord) {
+            paymentRecord.metadata = {
+                ...paymentRecord.metadata,
+                refund: {
+                    refundId: refund.id,
+                    amount: refund.amount,
+                    status: 'created',
+                    createdAt: new Date().toISOString(),
+                },
+            };
+            await paymentRecord.save();
+        }
+    }
+
+    /**
+     * Refund processed successfully
+     */
+    private async handleRefundProcessed(payload: WebhookPayload): Promise<void> {
+        const refund = (payload.payload as any).refund?.entity;
+        if (!refund) return;
+
+        console.log(`[Razorpay] ✅ Refund PROCESSED: ${refund.id}`);
+
+        const paymentRecord = await PaymentEntity.findOne({ gatewayPaymentId: refund.payment_id });
+
+        if (paymentRecord) {
+            // Check if full refund
+            const isFullRefund = refund.amount === paymentRecord.totalAmount;
+
+            paymentRecord.status = isFullRefund ? 'refunded' : 'partially_refunded';
+            paymentRecord.metadata = {
+                ...paymentRecord.metadata,
+                refund: {
+                    ...paymentRecord.metadata?.refund,
+                    status: 'processed',
+                    processedAt: new Date().toISOString(),
+                },
+            };
+            await paymentRecord.save();
+
+            // If full refund, deactivate user's plan
+            if (isFullRefund) {
+                await this.deactivateUserPlan(paymentRecord);
+                await this.notifyUserRefundProcessed(paymentRecord, refund.amount);
+            }
+        }
+    }
+
+    /**
+     * Refund failed
+     */
+    private async handleRefundFailed(payload: WebhookPayload): Promise<void> {
+        const refund = (payload.payload as any).refund?.entity;
+        if (!refund) return;
+
+        console.log(`[Razorpay] ❌ Refund FAILED: ${refund.id}`);
+
+        const paymentRecord = await PaymentEntity.findOne({ gatewayPaymentId: refund.payment_id });
+
+        if (paymentRecord) {
+            paymentRecord.metadata = {
+                ...paymentRecord.metadata,
+                refund: {
+                    ...paymentRecord.metadata?.refund,
+                    status: 'failed',
+                    failedAt: new Date().toISOString(),
+                },
+            };
+            await paymentRecord.save();
+        }
+
+        // Notify admin about failed refund
+        console.log(`[Razorpay] ADMIN ALERT: Refund failed for payment ${refund.payment_id}`);
+    }
+
+    // ══════════════════════════════════════════════════════════════════════════
+    // DISPUTE EVENT HANDLERS
+    // ══════════════════════════════════════════════════════════════════════════
+
     private async handleDisputeCreated(payload: WebhookPayload): Promise<void> {
         const dispute = payload.payload.dispute?.entity;
         if (!dispute) return;
 
         console.log(`[Razorpay] 🚨 Dispute CREATED: ${dispute.id}`);
-        console.log(`[Razorpay] Payment: ${dispute.payment_id}, Amount: ₹${dispute.amount / 100}`);
-        console.log(`[Razorpay] Reason: ${dispute.reason_code} - ${dispute.reason_description}`);
 
         await this.updatePaymentWithDispute(dispute.payment_id, {
             disputeId: dispute.id,
@@ -210,13 +342,9 @@ export class RazorpayWebhookService {
             createdAt: new Date().toISOString(),
         });
 
-        // URGENT: Notify admin
         await this.notifyAdminDispute(dispute, 'created');
     }
 
-    /**
-     * Dispute won - you won the dispute, funds returned
-     */
     private async handleDisputeWon(payload: WebhookPayload): Promise<void> {
         const dispute = payload.payload.dispute?.entity;
         if (!dispute) return;
@@ -231,15 +359,11 @@ export class RazorpayWebhookService {
         await this.notifyAdminDispute(dispute, 'won');
     }
 
-    /**
-     * Dispute lost - customer won, funds deducted from your account
-     */
     private async handleDisputeLost(payload: WebhookPayload): Promise<void> {
         const dispute = payload.payload.dispute?.entity;
         if (!dispute) return;
 
         console.log(`[Razorpay] ❌ Dispute LOST: ${dispute.id}`);
-        console.log(`[Razorpay] Amount deducted: ₹${dispute.amount_deducted / 100}`);
 
         const paymentRecord = await PaymentEntity.findOne({ gatewayPaymentId: dispute.payment_id });
 
@@ -248,7 +372,6 @@ export class RazorpayWebhookService {
             paymentRecord.metadata = {
                 ...paymentRecord.metadata,
                 dispute: {
-                    ...paymentRecord.metadata?.dispute,
                     disputeStatus: 'lost',
                     amountDeducted: dispute.amount_deducted,
                     resolvedAt: new Date().toISOString(),
@@ -256,16 +379,14 @@ export class RazorpayWebhookService {
             };
             await paymentRecord.save();
 
-            // Take action: flag user, potentially suspend plan
-            await this.handleDisputeLostAction(paymentRecord, dispute);
+            // Deactivate user's plan and flag account
+            await this.deactivateUserPlan(paymentRecord);
+            await this.flagUserForDispute(paymentRecord, dispute);
         }
 
         await this.notifyAdminDispute(dispute, 'lost');
     }
 
-    /**
-     * Dispute closed - dispute resolved without winner/loser
-     */
     private async handleDisputeClosed(payload: WebhookPayload): Promise<void> {
         const dispute = payload.payload.dispute?.entity;
         if (!dispute) return;
@@ -280,9 +401,6 @@ export class RazorpayWebhookService {
         await this.notifyAdminDispute(dispute, 'closed');
     }
 
-    /**
-     * Dispute under review - Razorpay/bank is reviewing
-     */
     private async handleDisputeUnderReview(payload: WebhookPayload): Promise<void> {
         const dispute = payload.payload.dispute?.entity;
         if (!dispute) return;
@@ -296,22 +414,17 @@ export class RazorpayWebhookService {
         await this.notifyAdminDispute(dispute, 'under_review');
     }
 
-    /**
-     * Dispute action required - YOU NEED TO RESPOND
-     */
     private async handleDisputeActionRequired(payload: WebhookPayload): Promise<void> {
         const dispute = payload.payload.dispute?.entity;
         if (!dispute) return;
 
         console.log(`[Razorpay] 🚨🚨 Dispute ACTION REQUIRED: ${dispute.id}`);
-        console.log(`[Razorpay] Respond by: ${new Date(dispute.respond_by * 1000).toLocaleString()}`);
 
         await this.updatePaymentWithDispute(dispute.payment_id, {
             disputeStatus: 'action_required',
             respondBy: new Date(dispute.respond_by * 1000).toISOString(),
         });
 
-        // URGENT: This needs immediate attention
         await this.notifyAdminDispute(dispute, 'action_required', true);
     }
 
@@ -319,231 +432,189 @@ export class RazorpayWebhookService {
     // DOWNTIME EVENT HANDLERS
     // ══════════════════════════════════════════════════════════════════════════
 
-    /**
-     * Payment downtime started - a payment method is experiencing issues
-     */
     private async handleDowntimeStarted(payload: WebhookPayload): Promise<void> {
         const downtime = payload.payload.downtime?.entity;
         if (!downtime) return;
 
         const severityEmoji = downtime.severity === 'high' ? '🔴' : downtime.severity === 'medium' ? '🟠' : '🟡';
-        
-        console.log(`[Razorpay] ${severityEmoji} Downtime STARTED: ${downtime.id}`);
-        console.log(`[Razorpay] Method: ${downtime.method}, Severity: ${downtime.severity}`);
-        console.log(`[Razorpay] Instrument:`, downtime.instrument);
+        console.log(`[Razorpay] ${severityEmoji} Downtime STARTED: ${downtime.method}`);
 
         await this.logDowntime(downtime, 'started');
         await this.notifyAdminDowntime(downtime, 'started');
     }
 
-    /**
-     * Payment downtime updated - status changed
-     */
     private async handleDowntimeUpdated(payload: WebhookPayload): Promise<void> {
         const downtime = payload.payload.downtime?.entity;
         if (!downtime) return;
 
         console.log(`[Razorpay] Downtime UPDATED: ${downtime.id}`);
-
         await this.logDowntime(downtime, 'updated');
     }
 
-    /**
-     * Payment downtime resolved - issue fixed
-     */
     private async handleDowntimeResolved(payload: WebhookPayload): Promise<void> {
         const downtime = payload.payload.downtime?.entity;
         if (!downtime) return;
 
         console.log(`[Razorpay] 🟢 Downtime RESOLVED: ${downtime.id}`);
-
         await this.logDowntime(downtime, 'resolved');
         await this.notifyAdminDowntime(downtime, 'resolved');
     }
 
     // ══════════════════════════════════════════════════════════════════════════
-    // SUBSCRIPTION EVENT HANDLERS (existing)
+    // HELPER METHODS - PAYMENT/ORDER
     // ══════════════════════════════════════════════════════════════════════════
 
-    private async handleSubscriptionAuthenticated(payload: WebhookPayload): Promise<void> {
-        const subscription = payload.payload.subscription?.entity;
-        if (!subscription) return;
-
-        await this.updatePaymentStatusBySubscription(subscription.id, 'authenticated');
-        console.log(`[Razorpay] Subscription authenticated: ${subscription.id}`);
+    private async findPaymentByOrderId(orderId: string | null): Promise<IPayment | null> {
+        if (!orderId) return null;
+        return PaymentEntity.findOne({ gatewayOrderId: orderId });
     }
 
-    private async handleSubscriptionActivated(payload: WebhookPayload): Promise<void> {
-        const subscription = payload.payload.subscription?.entity;
-        const payment = payload.payload.payment?.entity;
-        if (!subscription) return;
-
-        const paymentRecord = await this.findPaymentBySubscription(subscription.id);
-        if (!paymentRecord) {
-            console.error(`[Razorpay] No payment record for subscription: ${subscription.id}`);
-            return;
-        }
-
-        paymentRecord.status = 'completed';
-        paymentRecord.gatewayPaymentId = payment?.id;
-        await paymentRecord.save();
-
-        await this.activateUserPlan(paymentRecord, subscription);
-        console.log(`[Razorpay] Subscription activated: ${subscription.id}`);
-    }
-
-    private async handleSubscriptionCharged(payload: WebhookPayload): Promise<void> {
-        const subscription = payload.payload.subscription?.entity;
-        const payment = payload.payload.payment?.entity;
-        if (!subscription) return;
-
-        const paymentRecord = await this.findPaymentBySubscription(subscription.id);
-        if (!paymentRecord) return;
-
-        paymentRecord.gatewayPaymentId = payment?.id;
-        paymentRecord.status = 'completed';
-        paymentRecord.metadata = {
-            ...paymentRecord.metadata,
-            lastChargedAt: new Date().toISOString(),
-            chargeCount: (paymentRecord.metadata?.chargeCount || 0) + 1
-        };
-        await paymentRecord.save();
-
-        await this.activateUserPlan(paymentRecord, subscription);
-        console.log(`[Razorpay] Subscription charged: ${subscription.id}`);
-    }
-
-    private async handleSubscriptionPending(payload: WebhookPayload): Promise<void> {
-        const subscription = payload.payload.subscription?.entity;
-        if (!subscription) return;
-
-        await this.updatePaymentStatusBySubscription(subscription.id, 'pending');
-        console.log(`[Razorpay] Subscription pending: ${subscription.id}`);
-    }
-
-    private async handleSubscriptionHalted(payload: WebhookPayload): Promise<void> {
-        const subscription = payload.payload.subscription?.entity;
-        if (!subscription) return;
-
-        await this.handleSubscriptionEnd(subscription.id, 'halted');
-        console.log(`[Razorpay] Subscription halted: ${subscription.id}`);
-    }
-
-    private async handleSubscriptionCancelled(payload: WebhookPayload): Promise<void> {
-        const subscription = payload.payload.subscription?.entity;
-        if (!subscription) return;
-
-        await this.handleSubscriptionEnd(subscription.id, 'cancelled');
-        console.log(`[Razorpay] Subscription cancelled: ${subscription.id}`);
-    }
-
-    private async handleSubscriptionCompleted(payload: WebhookPayload): Promise<void> {
-        const subscription = payload.payload.subscription?.entity;
-        if (!subscription) return;
-
-        await this.handleSubscriptionEnd(subscription.id, 'completed');
-        console.log(`[Razorpay] Subscription completed: ${subscription.id}`);
-    }
-
-    private async handleSubscriptionExpired(payload: WebhookPayload): Promise<void> {
-        const subscription = payload.payload.subscription?.entity;
-        if (!subscription) return;
-
-        await this.updatePaymentStatusBySubscription(subscription.id, 'expired');
-        console.log(`[Razorpay] Subscription expired: ${subscription.id}`);
-    }
-
-    private async handleSubscriptionPaused(payload: WebhookPayload): Promise<void> {
-        const subscription = payload.payload.subscription?.entity;
-        if (!subscription) return;
-
-        await this.updatePaymentStatusBySubscription(subscription.id, 'paused');
-        await this.updateUserSubscriptionStatus(subscription.id, false, 'paused');
-        console.log(`[Razorpay] Subscription paused: ${subscription.id}`);
-    }
-
-    private async handleSubscriptionResumed(payload: WebhookPayload): Promise<void> {
-        const subscription = payload.payload.subscription?.entity;
-        if (!subscription) return;
-
-        await this.updatePaymentStatusBySubscription(subscription.id, 'active');
-        await this.updateUserSubscriptionStatus(subscription.id, true, 'active');
-        console.log(`[Razorpay] Subscription resumed: ${subscription.id}`);
-    }
-
-    // ══════════════════════════════════════════════════════════════════════════
-    // HELPER METHODS
-    // ══════════════════════════════════════════════════════════════════════════
-
-    // ----- Payment Helpers -----
-
-    private async findPaymentByOrderOrPaymentId(payment: RazorpayPaymentEntity): Promise<IPayment | null> {
-        // Try to find by order_id first
-        if (payment.order_id) {
-            const record = await PaymentEntity.findOne({ gatewayOrderId: payment.order_id });
-            if (record) return record;
-        }
-
-        // Try by payment_id
-        const record = await PaymentEntity.findOne({ gatewayPaymentId: payment.id });
-        if (record) return record;
-
-        // Try by notes (if payment has internal reference)
-        const notes = (payment as any).notes;
-        if (notes?.paymentRecordId) {
-            return PaymentEntity.findById(notes.paymentRecordId);
-        }
-
-        return null;
-    }
-
-    private async activateUserPlanFromPayment(paymentRecord: IPayment): Promise<void> {
+    /**
+     * Activate user's plan after successful payment
+     */
+    private async activateUserPlan(paymentRecord: IPayment): Promise<void> {
         const userId = paymentRecord.userId.toString();
         const planId = paymentRecord.planId;
         const isOwner = planId.startsWith('owner_');
 
         // Set plan expiry to 30 days from now
-        const expiresAt = new Date();
+        const now = new Date();
+        const expiresAt = new Date(now);
         expiresAt.setDate(expiresAt.getDate() + 30);
+
+        console.log(`[Razorpay] Activating plan ${planId} for user ${userId}`);
 
         if (isOwner) {
             await Owner.findOneAndUpdate(
                 { userId },
                 {
                     planId,
-                    planActivatedAt: new Date(),
+                    planActivatedAt: now,
                     planExpiresAt: expiresAt,
-                    autoRenew: false, // One-time payment
+                    autoRenew: false, // One-time order payment
+                    subscriptionStatus: 'active',
                 }
             );
             await activateOwnerBusinessLogic(paymentRecord);
         } else {
             await User.findByIdAndUpdate(userId, {
                 planId,
-                planActivatedAt: new Date(),
+                planActivatedAt: now,
                 planExpiresAt: expiresAt,
                 autoRenew: false,
+                subscriptionStatus: 'active',
             });
             await activateTenantBusinessLogic(paymentRecord);
+        }
+
+        console.log(`[Razorpay] Plan ${planId} activated until ${expiresAt.toISOString()}`);
+    }
+
+    /**
+     * Deactivate user's plan (on refund or dispute lost)
+     */
+    private async deactivateUserPlan(paymentRecord: IPayment): Promise<void> {
+        const userId = paymentRecord.userId.toString();
+        const isOwner = paymentRecord.planId.startsWith('owner_');
+        const fallbackPlan = isOwner ? 'owner_free' : 'tenant_free';
+
+        console.log(`[Razorpay] Deactivating plan for user ${userId}, falling back to ${fallbackPlan}`);
+
+        if (isOwner) {
+            await Owner.findOneAndUpdate(
+                { userId },
+                {
+                    subscriptionStatus: 'inactive',
+                }
+            );
+            await activateOwnerBusinessLogic(null, userId, fallbackPlan);
+        } else {
+            await User.findByIdAndUpdate(userId, {
+                subscriptionStatus: 'inactive',
+            });
+            await activateTenantBusinessLogic(null, userId, fallbackPlan);
+        }
+    }
+
+    // ══════════════════════════════════════════════════════════════════════════
+    // HELPER METHODS - NOTIFICATIONS
+    // ══════════════════════════════════════════════════════════════════════════
+
+    private async notifyUserPaymentSuccess(paymentRecord: IPayment): Promise<void> {
+        try {
+            const userId = paymentRecord.userId.toString();
+            const planId = paymentRecord.planId;
+            const isOwner = planId.startsWith('owner_');
+
+            let user;
+            if (isOwner) {
+                const owner = await Owner.findOne({ userId }).populate('userId');
+                user = await User.findById(userId);
+            } else {
+                user = await User.findById(userId);
+            }
+
+            if (user?.deviceToken) {
+                const planName = this.getPlanDisplayName(planId);
+                await sendPushNotification(
+                    user.deviceToken,
+                    `${planName} Activated! 🎉`,
+                    `Your ${planName} plan is now active. Enjoy all the premium features!`
+                );
+            }
+        } catch (err) {
+            console.error('[Razorpay] Failed to send success notification', err);
         }
     }
 
     private async notifyUserPaymentFailed(paymentRecord: IPayment, payment: RazorpayPaymentEntity): Promise<void> {
-        const userId = paymentRecord.userId.toString();
-        const user = await User.findById(userId);
+        try {
+            const userId = paymentRecord.userId.toString();
+            const user = await User.findById(userId);
 
-        if (user?.deviceToken) {
-            try {
-                // Import your notification utility
-                await sendPushNotification(user.deviceToken, 'Payment Failed', 'Your payment could not be processed. Please try again.');
-                console.log(`[Razorpay] Would notify user ${userId} about payment failure`);
-            } catch (err) {
-                console.error('[Razorpay] Failed to send payment failure notification', err);
+            if (user?.deviceToken) {
+                await sendPushNotification(
+                    user.deviceToken,
+                    'Payment Failed',
+                    'Your payment could not be processed. Please try again.'
+                );
             }
+        } catch (err) {
+            console.error('[Razorpay] Failed to send failure notification', err);
         }
     }
 
-    // ----- Dispute Helpers -----
+    private async notifyUserRefundProcessed(paymentRecord: IPayment, amount: number): Promise<void> {
+        try {
+            const userId = paymentRecord.userId.toString();
+            const user = await User.findById(userId);
+
+            if (user?.deviceToken) {
+                await sendPushNotification(
+                    user.deviceToken,
+                    'Refund Processed',
+                    `Your refund of ₹${amount / 100} has been processed successfully.`
+                );
+            }
+        } catch (err) {
+            console.error('[Razorpay] Failed to send refund notification', err);
+        }
+    }
+
+    private getPlanDisplayName(planId: string): string {
+        const names: Record<string, string> = {
+            'owner_starter': 'Starter',
+            'owner_pro': 'Pro',
+            'owner_ultra': 'Ultra',
+            'tenant_smart_finder': 'Smart Finder',
+            'tenant_premium': 'Premium',
+        };
+        return names[planId] || planId;
+    }
+
+    // ══════════════════════════════════════════════════════════════════════════
+    // HELPER METHODS - DISPUTES
+    // ══════════════════════════════════════════════════════════════════════════
 
     private async updatePaymentWithDispute(paymentId: string, disputeData: Record<string, any>): Promise<void> {
         await PaymentEntity.updateOne(
@@ -559,11 +630,10 @@ export class RazorpayWebhookService {
         );
     }
 
-    private async handleDisputeLostAction(paymentRecord: IPayment, dispute: RazorpayDisputeEntity): Promise<void> {
+    private async flagUserForDispute(paymentRecord: IPayment, dispute: RazorpayDisputeEntity): Promise<void> {
         const userId = paymentRecord.userId.toString();
         const isOwner = paymentRecord.planId.startsWith('owner_');
 
-        // Flag the user account
         const flagData = {
             'flags.hasDisputeLost': true,
             'flags.lastDisputeId': dispute.id,
@@ -587,18 +657,18 @@ export class RazorpayWebhookService {
         urgent: boolean = false
     ): Promise<void> {
         const urgentFlag = urgent ? '🚨 URGENT ' : '';
-        const statusEmoji = {
+        const statusEmoji: Record<string, string> = {
             'created': '⚠️',
             'won': '✅',
             'lost': '❌',
             'closed': '📁',
             'under_review': '🔍',
             'action_required': '🚨',
-        }[status] || '📋';
+        };
 
         console.log(`
 ╔══════════════════════════════════════════════════════════════════╗
-║ ${urgentFlag}${statusEmoji} DISPUTE ${status.toUpperCase()}
+║ ${urgentFlag}${statusEmoji[status] || '📋'} DISPUTE ${status.toUpperCase()}
 ╠══════════════════════════════════════════════════════════════════╣
 ║ Dispute ID:    ${dispute.id}
 ║ Payment ID:    ${dispute.payment_id}
@@ -609,12 +679,12 @@ export class RazorpayWebhookService {
 ╚══════════════════════════════════════════════════════════════════╝
         `);
 
-        // TODO: Integrate with your notification system
-        // await sendSlackNotification({ ... });
-        // await sendEmailToAdmin({ ... });
+        // TODO: Integrate with Slack/Email notifications
     }
 
-    // ----- Downtime Helpers -----
+    // ══════════════════════════════════════════════════════════════════════════
+    // HELPER METHODS - DOWNTIME
+    // ══════════════════════════════════════════════════════════════════════════
 
     private async logDowntime(downtime: RazorpayDowntimeEntity, eventType: string): Promise<void> {
         const log = {
@@ -631,22 +701,19 @@ export class RazorpayWebhookService {
         };
 
         console.log(`[Razorpay] Downtime Log:`, JSON.stringify(log, null, 2));
-
-        // TODO: Store in database if needed
-        // await DowntimeLog.create(log);
     }
 
     private async notifyAdminDowntime(downtime: RazorpayDowntimeEntity, status: 'started' | 'resolved'): Promise<void> {
         const emoji = status === 'started' ? '🔴' : '🟢';
-        const severityEmoji = {
+        const severityEmoji: Record<string, string> = {
             'high': '🚨',
             'medium': '⚠️',
             'low': 'ℹ️',
-        }[downtime.severity] || '📋';
+        };
 
         console.log(`
 ╔══════════════════════════════════════════════════════════════════╗
-║ ${emoji} ${severityEmoji} PAYMENT DOWNTIME ${status.toUpperCase()}
+║ ${emoji} ${severityEmoji[downtime.severity] || '📋'} PAYMENT DOWNTIME ${status.toUpperCase()}
 ╠══════════════════════════════════════════════════════════════════╣
 ║ Downtime ID:   ${downtime.id}
 ║ Method:        ${downtime.method}
@@ -654,100 +721,8 @@ export class RazorpayWebhookService {
 ║ Scheduled:     ${downtime.scheduled ? 'Yes' : 'No'}
 ║ Begin:         ${downtime.begin ? new Date(downtime.begin * 1000).toLocaleString() : 'N/A'}
 ║ End:           ${downtime.end ? new Date(downtime.end * 1000).toLocaleString() : 'Ongoing'}
-║ Instrument:    ${JSON.stringify(downtime.instrument || 'All')}
 ╚══════════════════════════════════════════════════════════════════╝
         `);
-    }
-
-    // ----- Subscription Helpers -----
-
-    private async findPaymentBySubscription(subscriptionId: string): Promise<IPayment | null> {
-        return PaymentEntity.findOne({ gatewaySubscriptionId: subscriptionId });
-    }
-
-    private async updatePaymentStatusBySubscription(subscriptionId: string, status: string): Promise<void> {
-        await PaymentEntity.updateOne(
-            { gatewaySubscriptionId: subscriptionId },
-            { status }
-        );
-    }
-
-    private async activateUserPlan(
-        paymentRecord: IPayment,
-        subscription: RazorpaySubscriptionEntity
-    ): Promise<void> {
-        const userId = paymentRecord.userId.toString();
-        const planId = paymentRecord.planId;
-        const isOwner = planId.startsWith('owner_');
-
-        const currentEnd = subscription.current_end
-            ? new Date(subscription.current_end * 1000)
-            : null;
-
-        if (isOwner) {
-            await Owner.findOneAndUpdate(
-                { userId },
-                {
-                    gatewaySubscriptionId: subscription.id,
-                    autoRenew: true,
-                    subscriptionStatus: 'active',
-                    ...(currentEnd && { planExpiresAt: currentEnd })
-                }
-            );
-            await activateOwnerBusinessLogic(paymentRecord);
-        } else {
-            await User.findByIdAndUpdate(userId, {
-                gatewaySubscriptionId: subscription.id,
-                autoRenew: true,
-                subscriptionStatus: 'active',
-                ...(currentEnd && { planExpiresAt: currentEnd })
-            });
-            await activateTenantBusinessLogic(paymentRecord);
-        }
-    }
-
-    private async handleSubscriptionEnd(subscriptionId: string, reason: string): Promise<void> {
-        const paymentRecord = await this.findPaymentBySubscription(subscriptionId);
-        if (!paymentRecord) return;
-
-        paymentRecord.status = reason;
-        await paymentRecord.save();
-
-        const userId = paymentRecord.userId.toString();
-        const isOwner = paymentRecord.planId.startsWith('owner_');
-        const fallbackPlan = isOwner ? 'owner_free' : 'tenant_free';
-
-        if (isOwner) {
-            await Owner.findOneAndUpdate({ userId }, {
-                autoRenew: false,
-                subscriptionStatus: reason
-            });
-            await activateOwnerBusinessLogic(null, userId, fallbackPlan);
-        } else {
-            await User.findByIdAndUpdate(userId, {
-                autoRenew: false,
-                subscriptionStatus: reason
-            });
-            await activateTenantBusinessLogic(null, userId, fallbackPlan);
-        }
-    }
-
-    private async updateUserSubscriptionStatus(
-        subscriptionId: string,
-        autoRenew: boolean,
-        status: string
-    ): Promise<void> {
-        const paymentRecord = await this.findPaymentBySubscription(subscriptionId);
-        if (!paymentRecord) return;
-
-        const userId = paymentRecord.userId.toString();
-        const isOwner = paymentRecord.planId.startsWith('owner_');
-
-        if (isOwner) {
-            await Owner.findOneAndUpdate({ userId }, { autoRenew, subscriptionStatus: status });
-        } else {
-            await User.findByIdAndUpdate(userId, { autoRenew, subscriptionStatus: status });
-        }
     }
 }
 

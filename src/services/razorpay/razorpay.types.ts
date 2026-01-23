@@ -3,36 +3,29 @@
 // Purpose: Type definitions for Razorpay integration
 // ============================================================================
 
-export interface RazorpayPlanConfig {
-    planId: string;           // Internal plan ID (e.g., "owner_pro")
-    razorpayPlanId: string;   // Razorpay Plan ID (e.g., "plan_xxxxx")
-    name: string;
-    amount: number;           // In paise
-    currency: string;
-    interval: number;
-    period: 'daily' | 'weekly' | 'monthly' | 'yearly';
-}
+// ========== Input/Output Types ==========
 
-export interface CreateSubscriptionInput {
+export interface CreateOrderInput {
     userId: string;
     planId: string;
     email: string;
     name: string;
     phone?: string;
-    totalCount?: number;      // Number of billing cycles
     notes?: Record<string, string>;
 }
 
-export interface SubscriptionResult {
-    subscriptionId: string;
-    shortUrl: string;
+export interface OrderResult {
+    orderId: string;
+    amount: number;
+    currency: string;
     status: string;
     paymentRecordId: string;
+    key: string;
 }
 
-export interface VerifySubscriptionInput {
+export interface VerifyPaymentInput {
+    razorpayOrderId: string;
     razorpayPaymentId: string;
-    razorpaySubscriptionId: string;
     razorpaySignature: string;
 }
 
@@ -41,8 +34,9 @@ export interface VerifySubscriptionInput {
 export interface WebhookPayload {
     event: string;
     payload: {
-        subscription?: { entity: RazorpaySubscriptionEntity };
+        order?: { entity: RazorpayOrderEntity };
         payment?: { entity: RazorpayPaymentEntity };
+        refund?: { entity: RazorpayRefundEntity };
         dispute?: { entity: RazorpayDisputeEntity };
         downtime?: { entity: RazorpayDowntimeEntity };
     };
@@ -50,26 +44,23 @@ export interface WebhookPayload {
 
 // ========== Razorpay Entities ==========
 
-export interface RazorpaySubscriptionEntity {
+export interface RazorpayOrderEntity {
     id: string;
-    plan_id: string;
-    status: string;
-    current_start: number;
-    current_end: number;
-    ended_at: number | null;
-    quantity: number;
+    entity: 'order';
+    amount: number;
+    amount_paid: number;
+    amount_due: number;
+    currency: string;
+    receipt: string;
+    status: 'created' | 'attempted' | 'paid';
+    attempts: number;
     notes: Record<string, string>;
-    charge_at: number;
-    offer_id: string | null;
-    short_url: string;
-    has_scheduled_changes: boolean;
-    change_scheduled_at: number | null;
-    payment_method: string;
-    customer_id: string;
+    created_at: number;
 }
 
 export interface RazorpayPaymentEntity {
     id: string;
+    entity: 'payment';
     amount: number;
     currency: string;
     status: string;
@@ -85,6 +76,22 @@ export interface RazorpayPaymentEntity {
     error_source?: string;
     error_step?: string;
     error_reason?: string;
+    notes?: Record<string, string>;
+    created_at?: number;
+}
+
+export interface RazorpayRefundEntity {
+    id: string;
+    entity: 'refund';
+    payment_id: string;
+    amount: number;
+    currency: string;
+    receipt: string | null;
+    status: 'pending' | 'processed' | 'failed';
+    speed_requested: 'normal' | 'optimum';
+    speed_processed: 'normal' | 'instant';
+    notes: Record<string, string>;
+    created_at: number;
 }
 
 export interface RazorpayDisputeEntity {
@@ -117,16 +124,14 @@ export interface RazorpayDowntimeEntity {
 
 // ========== Status Types ==========
 
-export type SubscriptionStatus = 
-    | 'created' 
-    | 'authenticated' 
-    | 'active' 
-    | 'pending' 
-    | 'halted' 
-    | 'cancelled' 
-    | 'completed' 
-    | 'expired'
-    | 'paused';
+export type OrderStatus = 'created' | 'attempted' | 'paid';
+
+export type PaymentStatus = 
+    | 'created'
+    | 'authorized'
+    | 'captured'
+    | 'refunded'
+    | 'failed';
 
 export type DisputeStatus = 
     | 'open'
@@ -135,10 +140,3 @@ export type DisputeStatus =
     | 'lost'
     | 'closed'
     | 'action_required';
-
-export type PaymentStatus = 
-    | 'created'
-    | 'authorized'
-    | 'captured'
-    | 'refunded'
-    | 'failed';

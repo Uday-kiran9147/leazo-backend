@@ -5,5 +5,5 @@
 
 export * from './razorpay.types';
 export * from './razorpay.client';
-export { subscriptionService, RazorpaySubscriptionService } from './razorpay.subscription.service';
+export { orderService, RazorpayOrderService } from './razorpay.order.service';
 export { webhookService, RazorpayWebhookService } from './razorpay.webhook.service';
