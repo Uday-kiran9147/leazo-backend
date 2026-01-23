@@ -39,8 +39,13 @@ export class RazorpayWebhookService {
      * Process webhook event
      */
     async processEvent(payload: WebhookPayload): Promise<void> {
-        const { event } = payload;
-        console.log(`[Razorpay Webhook] Processing event: ${event}`);
+        const { event, payload: data } = payload;
+        console.log(`\n[Razorpay Webhook] 📥 Received Event: ${event}`);
+
+        if (process.env.NODE_ENV !== 'production') {
+            const entityId = data.order?.entity?.id || data.payment?.entity?.id || data.refund?.entity?.id || data.dispute?.entity?.id || 'N/A';
+            console.log(`[Razorpay Webhook] Entity ID: ${entityId}`);
+        }
 
         const handlers: Record<string, () => Promise<void>> = {
             // ========== Order Events ==========
@@ -98,6 +103,7 @@ export class RazorpayWebhookService {
         const paymentRecord = await this.findPaymentByOrderId(order.id);
 
         if (paymentRecord) {
+            const previousStatus = paymentRecord.status;
             paymentRecord.status = 'completed';
             paymentRecord.gatewayPaymentId = payment?.id;
             paymentRecord.totalAmount = order.amount;
@@ -111,6 +117,7 @@ export class RazorpayWebhookService {
                 attempts: order.attempts,
             };
             await paymentRecord.save();
+            console.log(`[Razorpay Webhook] Payment Record ${paymentRecord._id} updated: ${previousStatus} -> completed`);
 
             // Activate the user's plan
             await this.activateUserPlan(paymentRecord);
@@ -141,6 +148,7 @@ export class RazorpayWebhookService {
         const paymentRecord = await this.findPaymentByOrderId(payment.order_id);
 
         if (paymentRecord) {
+            const previousStatus = paymentRecord.status;
             paymentRecord.status = 'authorized';
             paymentRecord.gatewayPaymentId = payment.id;
             paymentRecord.totalAmount = payment.amount;
@@ -153,6 +161,9 @@ export class RazorpayWebhookService {
                 contact: payment.contact,
             };
             await paymentRecord.save();
+            console.log(`[Razorpay Webhook] Payment Record ${paymentRecord._id} updated: ${previousStatus} -> authorized`);
+        } else {
+            console.warn(`[Razorpay Webhook] No payment record found for Order ID: ${payment.order_id} during authorized event`);
         }
 
         // Note: If auto-capture is enabled (default), payment.captured will follow
@@ -174,6 +185,7 @@ export class RazorpayWebhookService {
         if (paymentRecord) {
             // Only process if not already completed (order.paid might have processed it)
             if (paymentRecord.status !== 'completed') {
+                const previousStatus = paymentRecord.status;
                 paymentRecord.status = 'completed';
                 paymentRecord.gatewayPaymentId = payment.id;
                 paymentRecord.totalAmount = payment.amount;
@@ -186,6 +198,7 @@ export class RazorpayWebhookService {
                     tax: payment.tax,
                 };
                 await paymentRecord.save();
+                console.log(`[Razorpay Webhook] Payment Record ${paymentRecord._id} updated: ${previousStatus} -> completed (captured)`);
 
                 // Activate the user's plan
                 await this.activateUserPlan(paymentRecord);
@@ -193,8 +206,12 @@ export class RazorpayWebhookService {
                 // Send success notification
                 await this.notifyUserPaymentSuccess(paymentRecord);
 
-                console.log(`[Razorpay] Plan activated for user: ${paymentRecord.userId}`);
+                console.log(`[Razorpay Webhook] Plan activated for User ID: ${paymentRecord.userId}`);
+            } else {
+                console.log(`[Razorpay Webhook] Payment ${payment.id} already marked as completed, skipping reactivation.`);
             }
+        } else {
+            console.warn(`[Razorpay Webhook] No payment record found for Order ID: ${payment.order_id} during captured event`);
         }
     }
 
@@ -211,6 +228,7 @@ export class RazorpayWebhookService {
         const paymentRecord = await this.findPaymentByOrderId(payment.order_id);
 
         if (paymentRecord) {
+            const previousStatus = paymentRecord.status;
             paymentRecord.status = 'failed';
             paymentRecord.gatewayPaymentId = payment.id;
             paymentRecord.metadata = {
@@ -223,9 +241,13 @@ export class RazorpayWebhookService {
                 errorReason: payment.error_reason,
             };
             await paymentRecord.save();
+            console.log(`[Razorpay Webhook] Payment Record ${paymentRecord._id} updated: ${previousStatus} -> failed`);
+            console.log(`[Razorpay Webhook] Failure Details: ${payment.error_code} | ${payment.error_description}`);
 
             // Notify user about failed payment
             await this.notifyUserPaymentFailed(paymentRecord, payment);
+        } else {
+            console.warn(`[Razorpay Webhook] No payment record found for Order ID: ${payment.order_id} during failed event`);
         }
     }
 
@@ -257,6 +279,9 @@ export class RazorpayWebhookService {
                 },
             };
             await paymentRecord.save();
+            console.log(`[Razorpay Webhook] Refund ${refund.id} recorded for Payment ${paymentRecord.gatewayPaymentId}`);
+        } else {
+            console.warn(`[Razorpay Webhook] No payment record found for Payment ID: ${refund.payment_id} during refund created event`);
         }
     }
 
@@ -274,6 +299,7 @@ export class RazorpayWebhookService {
         if (paymentRecord) {
             // Check if full refund
             const isFullRefund = refund.amount === paymentRecord.totalAmount;
+            const previousStatus = paymentRecord.status;
 
             paymentRecord.status = isFullRefund ? 'refunded' : 'partially_refunded';
             paymentRecord.metadata = {
@@ -285,12 +311,18 @@ export class RazorpayWebhookService {
                 },
             };
             await paymentRecord.save();
+            console.log(`[Razorpay Webhook] Payment Record ${paymentRecord._id} updated: ${previousStatus} -> ${paymentRecord.status} (refund processed)`);
 
             // If full refund, deactivate user's plan
             if (isFullRefund) {
+                console.log(`[Razorpay Webhook] Full refund detected. Deactivating plan for user: ${paymentRecord.userId}`);
                 await this.deactivateUserPlan(paymentRecord);
                 await this.notifyUserRefundProcessed(paymentRecord, refund.amount);
+            } else {
+                console.log(`[Razorpay Webhook] Partial refund of ₹${refund.amount / 100} processed.`);
             }
+        } else {
+            console.warn(`[Razorpay Webhook] No payment record found for Payment ID: ${refund.payment_id} during refund processed event`);
         }
     }
 
@@ -315,6 +347,9 @@ export class RazorpayWebhookService {
                 },
             };
             await paymentRecord.save();
+            console.log(`[Razorpay Webhook] Refund ${refund.id} marked as FAILED for Payment ${paymentRecord.gatewayPaymentId}`);
+        } else {
+            console.warn(`[Razorpay Webhook] No payment record found for Payment ID: ${refund.payment_id} during refund failed event`);
         }
 
         // Notify admin about failed refund
@@ -368,6 +403,7 @@ export class RazorpayWebhookService {
         const paymentRecord = await PaymentEntity.findOne({ gatewayPaymentId: dispute.payment_id });
 
         if (paymentRecord) {
+            const previousStatus = paymentRecord.status;
             paymentRecord.status = 'disputed_lost';
             paymentRecord.metadata = {
                 ...paymentRecord.metadata,
@@ -378,10 +414,14 @@ export class RazorpayWebhookService {
                 },
             };
             await paymentRecord.save();
+            console.log(`[Razorpay Webhook] Payment Record ${paymentRecord._id} updated: ${previousStatus} -> disputed_lost`);
 
             // Deactivate user's plan and flag account
+            console.log(`[Razorpay Webhook] Dispute lost. Deactivating plan for user: ${paymentRecord.userId}`);
             await this.deactivateUserPlan(paymentRecord);
             await this.flagUserForDispute(paymentRecord, dispute);
+        } else {
+            console.warn(`[Razorpay Webhook] No payment record found for Payment ID: ${dispute.payment_id} during dispute lost event`);
         }
 
         await this.notifyAdminDispute(dispute, 'lost');
