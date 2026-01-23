@@ -194,7 +194,7 @@ export class RazorpayOrderService {
      * Mark payment as completed and update payment record
      */
     async completePayment(orderId: string, paymentId: string): Promise<void> {
-        const paymentRecord = await PaymentEntity.findOne({ gatewayOrderId: orderId });
+        const paymentRecord = await PaymentEntity.findOne({ orderId });
         
         if (paymentRecord) {
             paymentRecord.status = 'completed';

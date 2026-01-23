@@ -466,7 +466,7 @@ export class RazorpayWebhookService {
 
     private async findPaymentByOrderId(orderId: string | null): Promise<IPayment | null> {
         if (!orderId) return null;
-        return PaymentEntity.findOne({ gatewayOrderId: orderId });
+        return PaymentEntity.findOne({ orderId });
     }
 
     /**
