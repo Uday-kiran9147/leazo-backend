@@ -485,25 +485,8 @@ export class RazorpayWebhookService {
         console.log(`[Razorpay] Activating plan ${planId} for user ${userId}`);
 
         if (isOwner) {
-            await Owner.findOneAndUpdate(
-                { userId },
-                {
-                    planId,
-                    planActivatedAt: now,
-                    planExpiresAt: expiresAt,
-                    autoRenew: false, // One-time order payment
-                    subscriptionStatus: 'active',
-                }
-            );
             await activateOwnerBusinessLogic(paymentRecord);
         } else {
-            await User.findByIdAndUpdate(userId, {
-                planId,
-                planActivatedAt: now,
-                planExpiresAt: expiresAt,
-                autoRenew: false,
-                subscriptionStatus: 'active',
-            });
             await activateTenantBusinessLogic(paymentRecord);
         }
 
@@ -521,17 +504,8 @@ export class RazorpayWebhookService {
         console.log(`[Razorpay] Deactivating plan for user ${userId}, falling back to ${fallbackPlan}`);
 
         if (isOwner) {
-            await Owner.findOneAndUpdate(
-                { userId },
-                {
-                    subscriptionStatus: 'inactive',
-                }
-            );
             await activateOwnerBusinessLogic(null, userId, fallbackPlan);
         } else {
-            await User.findByIdAndUpdate(userId, {
-                subscriptionStatus: 'inactive',
-            });
             await activateTenantBusinessLogic(null, userId, fallbackPlan);
         }
     }
