@@ -150,7 +150,6 @@ export class RazorpayWebhookService {
             paymentRecord.paymentMethod = payment.method;
             paymentRecord.metadata = {
                 ...paymentRecord.metadata,
-                authorizedAt: new Date().toISOString(),
                 email: payment.email,
                 contact: payment.contact,
             };
@@ -186,7 +185,6 @@ export class RazorpayWebhookService {
                 paymentRecord.paymentMethod = payment.method;
                 paymentRecord.metadata = {
                     ...paymentRecord.metadata,
-                    capturedAt: new Date().toISOString(),
                     fee: payment.fee,
                     tax: payment.tax,
                 };
