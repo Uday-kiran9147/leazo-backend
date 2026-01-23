@@ -98,6 +98,10 @@ export class RazorpayWebhookService {
         const paymentRecord = await this.findPaymentByOrderId(order.id);
 
         if (paymentRecord) {
+            if (paymentRecord.status === 'completed') {
+                console.log(`[RZP-WH] Order ${order.id} already processed (completed), skipping duplication.`);
+                return;
+            }
             const previousStatus = paymentRecord.status;
             paymentRecord.status = 'completed';
             paymentRecord.gatewayPaymentId = payment?.id;
@@ -114,13 +118,9 @@ export class RazorpayWebhookService {
             await paymentRecord.save();
             console.log(`[RZP-WH] Record ${paymentRecord._id} updated: ${previousStatus} -> completed`);
 
-            // Activate the user's plan
+            // Activate the user's plan (this sends the success notification internally)
             await this.activateUserPlan(paymentRecord);
-
-            // Send success notification
-            await this.notifyUserPaymentSuccess(paymentRecord);
-
-            console.log(`[RZP-WH] Plan activated for user: ${paymentRecord.userId}`);
+            return;
         } else {
             console.error(`[RZP-WH] ❌ No payment record found for order: ${order.id}`);
         }
@@ -193,13 +193,8 @@ export class RazorpayWebhookService {
                 await paymentRecord.save();
                 console.log(`[RZP-WH] Record ${paymentRecord._id} updated: ${previousStatus} -> completed (captured)`);
 
-                // Activate the user's plan
+                // Activate the user's plan (this sends the success notification internally)
                 await this.activateUserPlan(paymentRecord);
-
-                // Send success notification
-                await this.notifyUserPaymentSuccess(paymentRecord);
-
-                console.log(`[RZP-WH] Plan activated for User ID: ${paymentRecord.userId}`);
             } else {
                 console.log(`[RZP-WH] Payment ${payment.id} already completed, skipping.`);
             }
@@ -307,7 +302,11 @@ export class RazorpayWebhookService {
             if (isFullRefund) {
                 console.log(`[RZP-WH] Full refund. Deactivating plan for user: ${paymentRecord.userId}`);
                 await this.deactivateUserPlan(paymentRecord);
-                await this.notifyUserRefundProcessed(paymentRecord, refund.amount);
+
+                // Only send refund notification if status changed to refunded just now
+                if (previousStatus !== 'refunded') {
+                    await this.notifyUserRefundProcessed(paymentRecord, refund.amount);
+                }
             } else {
                 console.log(`[RZP-WH] Partial refund of ₹${refund.amount / 100} processed.`);
             }
@@ -544,32 +543,10 @@ export class RazorpayWebhookService {
     // HELPER METHODS - NOTIFICATIONS
     // ══════════════════════════════════════════════════════════════════════════
 
-    private async notifyUserPaymentSuccess(paymentRecord: IPayment): Promise<void> {
-        try {
-            const userId = paymentRecord.userId.toString();
-            const planId = paymentRecord.planId;
-            const isOwner = planId.startsWith('owner_');
-
-            let user;
-            if (isOwner) {
-                const owner = await Owner.findOne({ userId }).populate('userId');
-                user = await User.findById(userId);
-            } else {
-                user = await User.findById(userId);
-            }
-
-            if (user?.deviceToken) {
-                const planName = this.getPlanDisplayName(planId);
-                await sendPushNotification(
-                    user.deviceToken,
-                    `${planName} Activated! 🎉`,
-                    `Your ${planName} plan is now active. Enjoy all the premium features!`
-                );
-            }
-        } catch (err) {
-            console.error('[RZP-WH] ❌ Failed to send success notification', err);
-        }
-    }
+    /**
+     * @deprecated Success notifications are now handled within business logic activation
+     */
+    // private async notifyUserPaymentSuccess(paymentRecord: IPayment): Promise<void> { ... }
 
     private async notifyUserPaymentFailed(paymentRecord: IPayment, payment: RazorpayPaymentEntity): Promise<void> {
         try {
