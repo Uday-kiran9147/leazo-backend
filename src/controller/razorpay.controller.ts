@@ -44,7 +44,8 @@ export const createSubscription = async (req: Request, res: Response) => {
             phone,
             totalCount
         });
-
+        // log
+        console.log('[Razorpay Controller] Subscription created successfully:', result.subscriptionId);
         res.status(200).json({
             success: true,
             data: {
