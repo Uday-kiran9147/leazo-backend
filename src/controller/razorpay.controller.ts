@@ -171,8 +171,11 @@ export const handleWebhook = async (req: Request, res: Response) => {
             return res.status(400).send('Missing signature');
         }
 
+        // Use raw body (Buffer) for signature validation
+        const rawBody = req.body; // This is now a Buffer, not parsed JSON
+        
         const isValid = webhookService.validateSignature(
-            JSON.stringify(req.body),
+            rawBody.toString(), // Convert buffer to string
             signature
         );
 
@@ -181,7 +184,9 @@ export const handleWebhook = async (req: Request, res: Response) => {
             return res.status(400).send('Invalid signature');
         }
 
-        await webhookService.processEvent(req.body);
+        // Parse the body now for processing
+        const payload = JSON.parse(rawBody.toString());
+        await webhookService.processEvent(payload);
         
         res.status(200).send('ok');
     } catch (error: any) {

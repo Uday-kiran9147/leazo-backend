@@ -60,6 +60,8 @@ const PORT = process.env.PORT || 3000;
 
 // Middleware
 app.use(cors());
+// In app.ts or webhook route, use raw body parsing for webhooks:
+app.use('/v1/api/webhooks/razorpay', express.raw({ type: 'application/json' }));
 app.use('/v1/api/webhooks', webhookRouter);
 app.use(express.json());
 
