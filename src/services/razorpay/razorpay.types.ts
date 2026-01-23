@@ -36,13 +36,19 @@ export interface VerifySubscriptionInput {
     razorpaySignature: string;
 }
 
+// ========== Webhook Payload ==========
+
 export interface WebhookPayload {
     event: string;
     payload: {
         subscription?: { entity: RazorpaySubscriptionEntity };
         payment?: { entity: RazorpayPaymentEntity };
+        dispute?: { entity: RazorpayDisputeEntity };
+        downtime?: { entity: RazorpayDowntimeEntity };
     };
 }
+
+// ========== Razorpay Entities ==========
 
 export interface RazorpaySubscriptionEntity {
     id: string;
@@ -72,7 +78,44 @@ export interface RazorpayPaymentEntity {
     order_id: string | null;
     email: string;
     contact: string;
+    fee?: number;
+    tax?: number;
+    error_code?: string;
+    error_description?: string;
+    error_source?: string;
+    error_step?: string;
+    error_reason?: string;
 }
+
+export interface RazorpayDisputeEntity {
+    id: string;
+    payment_id: string;
+    amount: number;
+    currency: string;
+    amount_deducted: number;
+    reason_code: string;
+    reason_description: string;
+    respond_by: number;
+    status: string;
+    phase: string;
+    created_at: number;
+}
+
+export interface RazorpayDowntimeEntity {
+    id: string;
+    method: string;
+    begin: number;
+    end: number | null;
+    status: string;
+    severity: 'high' | 'medium' | 'low';
+    scheduled: boolean;
+    instrument?: {
+        bank?: string;
+        psp?: string;
+    };
+}
+
+// ========== Status Types ==========
 
 export type SubscriptionStatus = 
     | 'created' 
@@ -84,3 +127,18 @@ export type SubscriptionStatus =
     | 'completed' 
     | 'expired'
     | 'paused';
+
+export type DisputeStatus = 
+    | 'open'
+    | 'under_review'
+    | 'won'
+    | 'lost'
+    | 'closed'
+    | 'action_required';
+
+export type PaymentStatus = 
+    | 'created'
+    | 'authorized'
+    | 'captured'
+    | 'refunded'
+    | 'failed';

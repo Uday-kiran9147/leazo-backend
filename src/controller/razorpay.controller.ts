@@ -10,14 +10,26 @@ import { RAZORPAY_CONFIG } from '../config/razorpayConfig';
 
 /**
  * Create a new subscription
- * POST /api/v1/payments/razorpay/subscription
+ * POST v1/api/payments/razorpay/create-subscription
  */
 export const createSubscription = async (req: Request, res: Response) => {
+    // log url
+    console.log(req.originalUrl);
     try {
-        const { planId, email, name, phone, totalCount } = req.body;
-        const userId = (req as any).user?.id || (req as any).userId;
+        var user = (req.body.user);
+        req.body.razorpayData = {
+            planId: req.body.planId,
+            email: user.email,
+            name: user.firstName + ' ' + user.lastName,
+            phone: req.body.user.phoneNumber,
+            totalCount: req.body.totalCount || 12
+        }
+        const { planId, email, name, phone, totalCount } = req.body.razorpayData;
+        const userId = (req.body as any).user?.id;
 
         if (!planId || !email || !name) {
+            // log
+            console.error('[Razorpay Controller] Missing required fields for subscription creation');
             return res.status(400).json({ 
                 success: false, 
                 error: 'Missing required fields: planId, email, name' 
@@ -55,6 +67,8 @@ export const createSubscription = async (req: Request, res: Response) => {
  * POST /api/v1/payments/razorpay/subscription/verify
  */
 export const verifySubscription = async (req: Request, res: Response) => {
+    // log
+    console.log(req.originalUrl);
     try {
         const { razorpay_payment_id, razorpay_subscription_id, razorpay_signature } = req.body;
 
@@ -232,6 +246,8 @@ export const changePlan = async (req: Request, res: Response) => {
  * POST /v1/api/webhooks/razorpay
  */
 export const handleWebhook = async (req: Request, res: Response) => {
+    // log webhook
+    console.log('[Razorpay Webhook] Received webhook:', req.body);
     try {
         const signature = req.headers['x-razorpay-signature'] as string;
         

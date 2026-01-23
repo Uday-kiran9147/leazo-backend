@@ -8,5 +8,5 @@ export const paymentsRouter = Router();
 
 
 
-paymentsRouter.post('/razorpay/create-order', auth, createRazorpaySubscription);
+paymentsRouter.post('/razorpay/create-subscription', auth, createRazorpaySubscription);
 paymentsRouter.post('/razorpay/verify-payment', auth, verifyRazorpaySubscription);
