@@ -78,12 +78,20 @@ export class RazorpaySubscriptionService {
      */
     verifySignature(input: VerifySubscriptionInput): boolean {
         const { razorpayPaymentId, razorpaySubscriptionId, razorpaySignature } = input;
-        
+
+        // DEBUG LOGS - Check your terminal
+        if (process.env.NODE_ENV !== 'production') {
+        console.log("Secret used:", RAZORPAY_CONFIG.key_secret.substring(0, 4) + "****");
+        console.log("Data to Hash:", `${razorpayPaymentId}|${razorpaySubscriptionId}`);
+        console.log("Client Signature:", razorpaySignature);
+        }
         const expectedSignature = crypto
-            .createHmac('sha256', RAZORPAY_CONFIG.key_secret)
-            .update(`${razorpayPaymentId}|${razorpaySubscriptionId}`)
+            .createHmac('sha256', RAZORPAY_CONFIG.key_secret.trim()) // Trim the secret
+            .update(`${razorpayPaymentId.trim()}|${razorpaySubscriptionId.trim()}`)
             .digest('hex');
 
+        console.log("Expected Signature:", expectedSignature);
+        console.log("Received Signature:", expectedSignature);
         return expectedSignature === razorpaySignature;
     }
 
