@@ -1,11 +1,12 @@
 export const RAZORPAY_CONFIG = {
-    key_id: process.env.RAZORPAY_KEY_ID || '',
-    key_secret: process.env.RAZORPAY_KEY_SECRET || '',
+    /// TODO: Replace with actual key id and secret from environment variables
+    key_id:  'plan_S4qOIxDN5zCY8R',
+    key_secret:  'plan_S4qOIxDN5zCY8R',
     plans: {
         owner_starter: "plan_S4qOIxDN5zCY8R",
-        owner_pro: process.env.RAZORPAY_PLAN_OWNER_PRO || '',
-        owner_ultra: process.env.RAZORPAY_PLAN_OWNER_ULTRA || '',
-        tenant_smart_finder: process.env.RAZORPAY_PLAN_TENANT_SMART_FINDER || '',
-        tenant_premium: process.env.RAZORPAY_PLAN_TENANT_PREMIUM || '',
+        owner_pro:  'plan_S4qOIxDN5zCY8R',
+        owner_ultra:  'plan_S4qOIxDN5zCY8R',
+        tenant_smart_finder:  'plan_S4qOIxDN5zCY8R',
+        tenant_premium:  'plan_S4qOIxDN5zCY8R',
     }
 };
