@@ -63,7 +63,7 @@ export class RedisClientManager {
             const redis = RedisClientManager.getInstance();
             if (!redis) return;
             const jsonValue:any = JSON.stringify(value);
-            expirationInSeconds = 60; // default 1 minute
+            expirationInSeconds = 60 * 60; // default 1-hour minute
             if (expirationInSeconds) {
                 await redis.set(key, jsonValue, { ex: expirationInSeconds });
             } else {
