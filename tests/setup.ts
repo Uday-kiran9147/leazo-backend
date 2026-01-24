@@ -1,7 +1,9 @@
 process.env.TZ = 'Asia/Kolkata';
+process.env.RAZORPAY_KEY_ID = 'rzp_test_dummy';
+process.env.RAZORPAY_KEY_SECRET = 'dummy_secret';
+
 import { MongoMemoryServer } from 'mongodb-memory-server';
 import mongoose from 'mongoose';
-
 import { BackgroundService } from '../src/utils/BackgroundService';
 
 let mongo: any;
@@ -28,7 +30,15 @@ jest.mock('../src/cache/RedisClientManager', () => ({
     deletePattern: jest.fn().mockResolvedValue(undefined),
     exists: jest.fn().mockResolvedValue(false),
     incr: jest.fn().mockResolvedValue(0),
-    getInstance: jest.fn().mockReturnValue({}),
+    getInstance: jest.fn().mockReturnValue({
+      pipeline: jest.fn().mockReturnValue({
+        del: jest.fn().mockReturnThis(),
+        exec: jest.fn().mockResolvedValue([]),
+      }),
+      del: jest.fn().mockResolvedValue(1),
+      get: jest.fn().mockResolvedValue(null),
+      set: jest.fn().mockResolvedValue('OK'),
+    }),
   },
 }));
 
@@ -92,6 +102,7 @@ console.warn = (...args) => {
 console.error = (...args) => {
   if (args[0]?.toString().includes('registration token is not a valid FCM registration token')) return;
   if (args[0]?.toString().includes('FAILED_PRECONDITION')) return;
+  if (args[0]?.toString().includes('Razorpay credentials not configured')) return;
   originalError(...args);
 };
 
