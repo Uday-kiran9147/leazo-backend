@@ -1,20 +1,29 @@
 process.env.TZ = 'Asia/Kolkata';
 import dotenv from 'dotenv';
 import path from 'path';
+import { logger } from './utils/logger';
 
 // Load environment variables based on NODE_ENV
 const nodeEnv = process.env.NODE_ENV || 'development';
 const envFile = nodeEnv === 'production' ? '.env.production' :
   nodeEnv === 'test' ? '.env.test' : '.env.development';
-// Development logging
+// Environment logging
 if (nodeEnv === 'development') {
-  console.log('Development environment');
+  logger.info('Environment: Development');
 }
 
 // Production logging
 if (nodeEnv === 'production') {
-  console.log('Production environment');
+  logger.info('Environment: Production');
 }
+
+// Sample Enterprise Logs
+// logger.info("Initializing Enterprise Logging System...");
+// logger.success("Logger system ready for production.");
+// logger.warn("Potential configuration issue detected (Sample)", { config: "missing_key" });
+// logger.debug("Database connection pool initialized (Sample)", { poolSize: 10, timeout: "5s" });
+// logger.error("Sample Error: Failed to fetch external resource", new Error("Connection Timeout"));
+// logger.fatal("System Critical: Power supply failure (Sample Simulation)");
 dotenv.config({ path: path.resolve(process.cwd(), envFile) });
 // Also load general .env if it exists (as a fallback or for shared variables)
 dotenv.config();
@@ -133,16 +142,16 @@ async function startCyclicFunc() {
   setInterval(async () => {
     try {
       await axios.get(SERVER_URL).then((res) => {
-        console.log(`Keep-alive ping status: ${res.status}`);
+        logger.debug(`Keep-alive ping status: ${res.status}`);
       });
     } catch (error) {
-      console.error(`Error in cyclic function: ${error}`);
+      logger.error(`Error in cyclic function`, error);
     }
   }, 1000 * 60*10); // 10 minutes
 }
 
 if (process.env.NODE_ENV !== 'test') {
-  console.log("Starting cyclic function");
+  logger.info("Starting background services...");
   startCyclicFunc();
 }
 
@@ -151,11 +160,10 @@ export default app;
 
 if (process.env.NODE_ENV !== 'test') {
   app.listen(PORT, () => {
-    console.log(`Server is running on port http://localhost:${PORT}`);
-    // const memoryUsage = process.memoryUsage();
-    // log('Memory Usage:');
-    // Object.entries(memoryUsage).forEach(([key, value]) => {
-    //   log(`  ${key}: ${(value / 1024 / 1024).toFixed(2)} MB`);
-    // });
+    logger.success(`Server established successfully!`, {
+      port: PORT,
+      url: `http://localhost:${PORT}`,
+      env: nodeEnv
     });
+  });
 }

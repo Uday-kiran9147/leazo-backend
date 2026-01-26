@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import ApiError, { handleError } from '../utils/api_error';
 import ApiResponse from '../utils/api_response';
+import { logger } from '../utils/logger';
 
 /**
  * Global Error Handling Middleware
@@ -13,9 +14,16 @@ export const globalErrorHandler = (
 ) => {
     const apiResponse = handleError(err, req, res);
     
-    // If it's a 500 error, we might want to log the full stack trace for internal debugging
+    // If it's a 500 error, we log the full error with metadata
     if (apiResponse.status === 500) {
-        console.error(`[Internal Server Error] ${req.method} ${req.url}`, err);
+        logger.error(`Internal Server Error: ${req.method} ${req.url}`, {
+            error: err.message,
+            stack: err.stack,
+            body: req.body,
+            query: req.query,
+            params: req.params,
+            user: (req as any).user?.id
+        });
     }
 
     return res.status(apiResponse.status).json(apiResponse);
