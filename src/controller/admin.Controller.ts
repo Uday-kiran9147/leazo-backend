@@ -12,6 +12,80 @@ import { MongoosePortionRepository } from "../repositories/PortionRepository";
 import { MongooseOwnerRepository } from "../repositories/OwnerRepository";
 import { PortionService } from "../services/PortionService";
 
+/**
+ * Helper function to fetch user device tokens with names
+ * Returns array of users with _id, name, and deviceToken
+ */
+const getUserDeviceTokens = async () => {
+    const users = await User.find({ deviceToken: { $exists: true, $ne: null } })
+        .select('_id firstName lastName deviceToken')
+        .lean();
+
+    return users.map(user => ({
+        _id: user._id,
+        name: `${user.firstName} ${user.lastName}`.trim(),
+        deviceToken: user.deviceToken
+    }));
+};
+
+/**
+ * Send notification to all users (Admin/Moderator only)
+ */
+export const sendNotificationToUsers = async (req: Request, res: Response) => {
+    try {
+        const { title, body, type = 'info' } = req.body;
+
+        // Validate required fields
+        if (!title || !body) {
+            return res.status(400).json(new ApiResponse(400, "Title and body are required", null));
+        }
+
+        // Fetch all users
+        const users = await User.find({}).select('_id deviceToken').lean();
+
+        if (users.length === 0) {
+            return res.status(404).json(new ApiResponse(404, "No users found", null));
+        }
+
+        // Get users with device tokens for push notifications
+        const usersWithTokens = await getUserDeviceTokens();
+        const tokenMap = new Map(usersWithTokens.map(u => [u._id.toString(), u.deviceToken]));
+
+        // Create notifications and send push notifications in parallel
+        const notificationPromises = users.map(async (user) => {
+            // Save notification to database
+            await Notification.createNotification(
+                user._id,
+                title,
+                body,
+                type,
+                { sentBy: req.body.user._id, sentByRole: req.body.user.role }
+            );
+
+            // Send push notification if user has device token
+            const deviceToken = tokenMap.get(user._id.toString());
+            if (deviceToken) {
+                try {
+                    await sendPushNotification(deviceToken, title, body);
+                } catch (pushError) {
+                    console.error(`Failed to send push notification to user ${user._id}:`, pushError);
+                }
+            }
+        });
+
+        await Promise.all(notificationPromises);
+
+        return res.status(200).json(new ApiResponse(200, `Notification sent to ${users.length} user(s) successfully`, {
+            totalUsers: users.length,
+            pushNotificationsSent: usersWithTokens.length,
+            title,
+            body
+        }));
+    } catch (error) {
+        const apiError = handleError(error, req, res);
+        return res.status(apiError.status).json(apiError);
+    }
+};
 export const getAllUsers = async (req: Request, res: Response) => {
     try {
         const users = await User.find({}).sort({ createdAt: -1 });

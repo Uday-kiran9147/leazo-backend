@@ -1,6 +1,6 @@
 import Router, { Request, Response } from 'express';
 import { auth } from '../middleware/auth.middleware';
-import { getAllUsers, getDashboardStats, getPortionsByStatus, getUserRolesDistribution, UpdatePortionStatus, UpdateRole } from '../controller/admin.Controller';
+import { getAllUsers, getDashboardStats, getPortionsByStatus, getUserRolesDistribution, sendNotificationToUsers, UpdatePortionStatus, UpdateRole } from '../controller/admin.Controller';
 import { isAdminMiddleware } from '../middleware/isAdmin.middleware';
 import { analyticsService } from '../controller/analytic.Controller';
 import { User } from '../models/user.model';
@@ -14,7 +14,7 @@ adminRouter.get('/user-distribution', auth, isAdminMiddleware, getUserRolesDistr
 adminRouter.get('/users',auth,isAdminMiddleware,getAllUsers);
 adminRouter.patch('/update-portion-status/:id/:status',auth,isAdminMiddleware,UpdatePortionStatus)
 adminRouter.get('/get-portions/:status',auth,isAdminMiddleware,getPortionsByStatus)
-
+adminRouter.post('/push-notification', auth, isAdminMiddleware, sendNotificationToUsers);
 // Get Weekly Activity
 adminRouter.get('/weekly-activity', auth, isAdminMiddleware, async (req, res) => {
   try {
