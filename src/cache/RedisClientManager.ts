@@ -1,4 +1,5 @@
 import { Redis } from '@upstash/redis';
+import { logger } from '../utils/logger';
 
 export class RedisClientManager {
     private static instance: Redis | null = null;
@@ -19,7 +20,7 @@ export class RedisClientManager {
     */
     private static isEnabled(): boolean {
         const isEnabled = !!process.env.REDIS_URL && !!process.env.REDIS_SECRET;
-        console.log(`[Redis] isEnabled: ${isEnabled}`);
+        logger.debug(`[Redis] isEnabled: ${isEnabled}`);
         return isEnabled;
     }
 
@@ -48,11 +49,11 @@ export class RedisClientManager {
             if (keys.length === 0) return;
 
             await Promise.all(keys.map((key) =>{
-                console.log(`[Redis] DELETE PATTERN key: ${key}`);
+                logger.debug(`[Redis] DELETE PATTERN key: ${key}`);
                 return redis.del(key);
             }));
         } catch (error) {
-            console.error(`[Redis] DELETE PATTERN failed: ${pattern}`, error);
+            logger.error(`[Redis] DELETE PATTERN failed: ${pattern}`, error);
         }
     }
 
@@ -69,9 +70,9 @@ export class RedisClientManager {
             } else {
                 await redis.set(key, jsonValue);
             }
-            console.log(`[Redis] SET key: ${key}`);
+            logger.debug(`[Redis] SET key: ${key}`);
         } catch (error) {
-            console.error(`Failed to set key ${key}:`, error);
+            logger.error(`Failed to set key ${key}`, error);
         }
     }
 
@@ -83,13 +84,13 @@ export class RedisClientManager {
             if (!redis) return null;
             const value = await redis.get(key);
             if (value) {
-                console.log(`[Redis] HIT key: ${key}`);
+                logger.debug(`[Redis] HIT key: ${key}`);
             } else {
-                console.log(`[Redis] MISS key: ${key}`);
+                logger.debug(`[Redis] MISS key: ${key}`);
             }
             return value;
         } catch (error) {
-            console.error(`Failed to get key ${key}:`, error);
+            logger.error(`Failed to get key ${key}`, error);
             return null;
         }
     }
@@ -101,9 +102,9 @@ export class RedisClientManager {
             const redis = RedisClientManager.getInstance();
             if (!redis) return;
             await redis.del(key);
-            console.log(`[Redis] DELETE key: ${key}`);
+            logger.debug(`[Redis] DELETE key: ${key}`);
         } catch (error) {
-            console.error(`Failed to delete key ${key}:`, error);
+            logger.error(`Failed to delete key ${key}`, error);
         }
     }
 
@@ -114,10 +115,10 @@ export class RedisClientManager {
             const redis = RedisClientManager.getInstance();
             if (!redis) return false;
             const result = await redis.exists(key);
-            console.log(`[Redis] EXISTS key: ${key} -> ${result === 1}`);
+            logger.debug(`[Redis] EXISTS key: ${key} -> ${result === 1}`);
             return result === 1;
         } catch (error) {
-            console.error(`Failed to check existence for key ${key}:`, error);
+            logger.error(`Failed to check existence for key ${key}`, error);
             return false;
         }
     }
@@ -129,10 +130,10 @@ export class RedisClientManager {
             const redis = RedisClientManager.getInstance();
             if (!redis) return 0;
             const newValue = await redis.incr(key);
-            console.log(`[Redis] INCR key: ${key} -> ${newValue}`);
+            logger.debug(`[Redis] INCR key: ${key} -> ${newValue}`);
             return newValue;
         } catch (error) {
-            console.error(`Failed to increment key ${key}:`, error);
+            logger.error(`Failed to increment key ${key}`, error);
             return 0;
         }
     }

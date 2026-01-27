@@ -125,7 +125,7 @@ app.get("/api/subscription-status", async (req: Request, res: Response) => {
     return res.status(404).json({ error: "Payment record not found" });
   }
 
-  console.log(record);
+  logger.debug("Payment record fetched", { id: record._id, status: record.status });
   return res.json({
     status: record.status,
     subscription_id: record.gatewaySubscriptionId ?? null,

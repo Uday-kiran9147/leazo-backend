@@ -10,13 +10,14 @@ import { Feedback } from '../models/feedback.model';
 import { Owner } from '../models/owner.model';
 import { getTenantPlanRules } from '../config/tenantConfig';
 import { getPlanRules } from '../config/ownerConfig';
+import { logger } from '../utils/logger';
 
 
 
 export const searchPortions = async (req: Request, res: Response) => {
   // /api/users/search?q=hyderabad luxary&limit=10
   const { q, limit = 20 } = req.query;
-  console.log("Search query:", q, "Limit:", limit);
+  logger.debug("Search query received", { query: q, limit });
   
   if (!q || typeof q !== "string") {
     return res.status(400).json(new ApiResponse(400, "Search term is required", null));
@@ -133,9 +134,8 @@ export const getAllPortions = async (req: Request, res: Response) => {
     const cachedPortions = await RedisClientManager.get(cacheKey);
 
     if (cachedPortions) {
-      console.log("Serving portions from cache");
+      logger.debug("Serving all portions from cache");
       const apiResponse = new ApiResponse(200, "success", JSON.parse(cachedPortions));
-      console.log("Cache Hit");
       
       return res.status(apiResponse.status).json(apiResponse);
     }
@@ -175,9 +175,8 @@ export const getAllUsers = async (req: Request, res: Response) => {
     const cachedUsers = await RedisClientManager.get(cacheKey);
 
     if (cachedUsers) {
-      console.log("Serving from cache");
+      logger.debug("Serving all users from cache");
       const apiResponse = new ApiResponse(200, "success", JSON.parse(cachedUsers));
-      console.log("Cache Hit");
       return res.status(apiResponse.status).json(apiResponse);
     }
 
@@ -264,9 +263,9 @@ export const createUser = async (req: Request, res: Response) => {
     setTimeout(async () => {
       try {
         await sendNewUserNotification();
-        console.log("New User notification sent successfully");
+        logger.debug("New User notification sent successfully");
       } catch (error) {
-        console.error("Failed to send New User notification:", error);
+        logger.error("Failed to send New User notification", error);
       }
     }, 5 * 60000); // 5 minutes
 
@@ -282,19 +281,18 @@ export const createUser = async (req: Request, res: Response) => {
       try {
         await sendPushNotification(user.deviceToken, "Welcome to Leazo! 🏡", "Your account has been successfully created. Explore amazing rooms available for rent and start your journey with Leazo!");
         // Create a notification for the user
-        const notification = Notification.createNotification(
+        const notification = await (Notification as any).createNotification(
           user._id,
           "Welcome to Leazo! 🏡",
           "Your account has been successfully created. Explore amazing rooms available for rent and start your journey with Leazo!",
           'info'
         );
-        (await notification).save();
-        console.log("Push notification sent to new user");
+        logger.info("Push notification sent to new user", { user: user._id });
       } catch (error) {
-        console.error("Failed to send push notification:", error);
+        logger.error("Failed to send push notification to new user", error);
       }
     } else {
-      console.warn("No device token found for user. Notification not sent.");
+      logger.warn("No device token found for new user. Notification skipped.", { user: user._id });
     }
   }
 };
@@ -320,7 +318,7 @@ export const getUser = async (req: Request, res: Response) => {
       const cachedUser = await RedisClientManager.get(cacheKey);
 
       if (cachedUser) {
-        console.log("Serving user from cache");
+        logger.debug("Serving user from cache", { user: user._id });
         const apiResponse = new ApiResponse(200, "User fetched successfully", JSON.parse(cachedUser));
         return res.status(apiResponse.status).json(apiResponse);
       }
@@ -398,9 +396,9 @@ export const updateUser = async (req: Request, res: Response) => {
     setTimeout(async () => {
       try {
         await sendProfileUpdateNotification();
-        console.log("Profile update notification sent successfully");
+        logger.debug("Profile update notification sent successfully", { user: user._id });
       } catch (error) {
-        console.error("Failed to send profile update notification:", error);
+        logger.error("Failed to send profile update notification", error);
       }
     }, 30000); // 30 seconds
 
@@ -486,7 +484,7 @@ export const revealPortionContact = async (req: Request, res: Response) => {
         );
       }
     } catch (notifError) {
-      console.error("Failed to notify owner:", notifError);
+      logger.error("Failed to notify owner about contact reveal", notifError);
       // Don't fail the request if notification fails
     }
 

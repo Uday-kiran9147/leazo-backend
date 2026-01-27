@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import ApiResponse from "./api_response";
 import { ZodError } from "zod";
+import { logger } from "./logger";
 
 class ApiError extends Error {
     public statusCode: number;
@@ -75,7 +76,7 @@ export const handleError = (error: any, req: any, res: any): ApiResponse => {
         return apiResponse;
     }
 
-    console.error('Unhandled Error:', error);
+    logger.error('Unhandled Error', error);
     apiResponse = new ApiResponse(500, 'An unexpected error occurred.', error);
 
     return apiResponse;

@@ -1,6 +1,7 @@
 import dotenv from "dotenv";
 import { Plan, UserType } from "../models/plan.model";
 import { OWNER_PLAN_RULES } from "./ownerConfig";
+import { logger } from "../utils/logger";
 
 dotenv.config();
 
@@ -69,9 +70,9 @@ export const seedOwnerPlans = async () => {
 
     await Plan.bulkWrite(bulkOps);
 
-    console.log(`✅ Seeded ${plans.length} owner plans with KV features`);
+    logger.success(`Seeded ${plans.length} owner plans with KV features`);
   } catch (err) {
-    console.error("❌ Failed to seed owner plans:", err);
+    logger.error("Failed to seed owner plans", err);
   }
 };
 

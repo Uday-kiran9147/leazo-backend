@@ -6,6 +6,7 @@
 import { Request, Response } from 'express';
 import { orderService, webhookService } from '../services/razorpay';
 import { RAZORPAY_CONFIG } from '../config/razorpayConfig';
+import { logger } from '../utils/logger';
 
 /**
  * Create a new order
@@ -44,7 +45,7 @@ export const createOrder = async (req: Request, res: Response) => {
             data: result,
         });
     } catch (error: any) {
-        console.error('[Razorpay Controller] createOrder error:', error);
+        logger.error('[Razorpay Controller] createOrder error', error);
         res.status(500).json({ 
             success: false, 
             error: error.message || 'Failed to create order' 
@@ -85,7 +86,7 @@ export const verifyPayment = async (req: Request, res: Response) => {
 
         res.status(200).json({ success: true, verified: true });
     } catch (error: any) {
-        console.error('[Razorpay Controller] verifyPayment error:', error);
+        logger.error('[Razorpay Controller] verifyPayment error', error);
         res.status(500).json({ 
             success: false, 
             error: error.message || 'Verification failed' 
@@ -104,7 +105,7 @@ export const getOrder = async (req: Request, res: Response) => {
         
         res.status(200).json({ success: true, data: order });
     } catch (error: any) {
-        console.error('[Razorpay Controller] getOrder error:', error);
+        logger.error('[Razorpay Controller] getOrder error', error);
         res.status(500).json({ 
             success: false, 
             error: error.message || 'Failed to fetch order' 
@@ -125,7 +126,7 @@ export const getPaymentHistory = async (req: Request, res: Response) => {
 
         res.status(200).json({ success: true, data: payments });
     } catch (error: any) {
-        console.error('[Razorpay Controller] getPaymentHistory error:', error);
+        logger.error('[Razorpay Controller] getPaymentHistory error', error);
         res.status(500).json({ 
             success: false, 
             error: error.message || 'Failed to fetch payment history' 
@@ -151,7 +152,7 @@ export const refundPayment = async (req: Request, res: Response) => {
         const refund = await orderService.refundPayment(paymentId, amount, notes);
         res.status(200).json({ success: true, data: refund });
     } catch (error: any) {
-        console.error('[Razorpay Controller] refundPayment error:', error);
+        logger.error('[Razorpay Controller] refundPayment error', error);
         res.status(500).json({ 
             success: false, 
             error: error.message || 'Failed to process refund' 
@@ -179,8 +180,9 @@ export const handleWebhook = async (req: Request, res: Response) => {
             signature
         );
 
+
         if (!isValid) {
-            console.error('[Razorpay Webhook] Invalid signature');
+            logger.error('[Razorpay Webhook] Invalid signature');
             return res.status(400).send('Invalid signature');
         }
 
@@ -190,7 +192,7 @@ export const handleWebhook = async (req: Request, res: Response) => {
         
         res.status(200).send('ok');
     } catch (error: any) {
-        console.error('[Razorpay Webhook] Error:', error);
+        logger.error('[Razorpay Webhook] Error processing event', error);
         res.status(500).send('Webhook processing failed');
     }
 };

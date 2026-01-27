@@ -16,6 +16,7 @@ import {
     RazorpayDowntimeEntity,
 } from './razorpay.types';
 import { sendPushNotification } from '../../utils/push_notifications';
+import { logger } from '../../utils/logger';
 
 export class RazorpayWebhookService {
     private webhookSecret: string;
@@ -29,7 +30,7 @@ export class RazorpayWebhookService {
      */
     validateSignature(body: string, signature: string): boolean {
         if (!this.webhookSecret) {
-            console.error('[Razorpay Webhook] Webhook secret not configured');
+            logger.error('[Razorpay Webhook] Webhook secret not configured');
             return false;
         }
         return Razorpay.validateWebhookSignature(body, signature, this.webhookSecret);
@@ -41,7 +42,7 @@ export class RazorpayWebhookService {
     async processEvent(payload: WebhookPayload): Promise<void> {
         const { event, payload: data } = payload;
         const entityId = data.order?.entity?.id || data.payment?.entity?.id || data.refund?.entity?.id || data.dispute?.entity?.id || 'N/A';
-        console.log(`[RZP-WH] 📥 ${event} (ID: ${entityId})`);
+        logger.info(`[RZP-WH] 📥 ${event}`, { entityId });
 
         const handlers: Record<string, () => Promise<void>> = {
             // ========== Order Events ==========
@@ -76,7 +77,7 @@ export class RazorpayWebhookService {
         if (handler) {
             await handler();
         } else {
-            console.log(`[RZP-WH] ⚠️ Unhandled event: ${event}`);
+            logger.warn(`[RZP-WH] ⚠️ Unhandled event`, { event });
         }
     }
 
@@ -93,13 +94,13 @@ export class RazorpayWebhookService {
         const payment = payload.payload.payment?.entity;
         if (!order) return;
 
-        console.log(`[RZP-WH] ✅ Order PAID: ${order.id} | ₹${order.amount / 100} | ${order.status}`);
+        logger.success(`[RZP-WH] Order PAID`, { order: order.id, amount: order.amount / 100, status: order.status });
 
         const paymentRecord = await this.findPaymentByOrderId(order.id);
 
         if (paymentRecord) {
             if (paymentRecord.status === 'completed') {
-                console.log(`[RZP-WH] Order ${order.id} already processed (completed), skipping duplication.`);
+                logger.debug(`[RZP-WH] Order already processed, skipping.`, { order: order.id });
                 return;
             }
             const previousStatus = paymentRecord.status;
@@ -116,13 +117,13 @@ export class RazorpayWebhookService {
                 attempts: order.attempts,
             };
             await paymentRecord.save();
-            console.log(`[RZP-WH] Record ${paymentRecord._id} updated: ${previousStatus} -> completed`);
+            logger.info(`[RZP-WH] Record updated to completed`, { paymentId: paymentRecord._id });
 
             // Activate the user's plan (this sends the success notification internally)
             await this.activateUserPlan(paymentRecord);
             return;
         } else {
-            console.error(`[RZP-WH] ❌ No payment record found for order: ${order.id}`);
+            logger.error(`[RZP-WH] No payment record found for order`, { order: order.id });
         }
     }
 
@@ -137,16 +138,13 @@ export class RazorpayWebhookService {
         const payment = payload.payload.payment?.entity;
         if (!payment) return;
 
-        console.log(`[RZP-WH] Payment AUTHORIZED: ${payment.id} | ₹${payment.amount / 100} | ${payment.method}`);
+        logger.info(`[RZP-WH] Payment AUTHORIZED`, { payment: payment.id, amount: payment.amount / 100, method: payment.method });
 
         const paymentRecord = await this.findPaymentByOrderId(payment.order_id);
 
         if (paymentRecord) {
             const previousStatus = paymentRecord.status;
             paymentRecord.status = 'authorized';
-            paymentRecord.gatewayPaymentId = payment.id;
-            paymentRecord.totalAmount = payment.amount;
-            paymentRecord.currency = payment.currency;
             paymentRecord.paymentMethod = payment.method;
             paymentRecord.metadata = {
                 ...paymentRecord.metadata,
@@ -154,9 +152,9 @@ export class RazorpayWebhookService {
                 contact: payment.contact,
             };
             await paymentRecord.save();
-            console.log(`[RZP-WH] Record ${paymentRecord._id} updated: ${previousStatus} -> authorized`);
+            logger.info(`[RZP-WH] Record updated to authorized`, { paymentId: paymentRecord._id });
         } else {
-            console.warn(`[RZP-WH] ⚠️ No payment record found for Order ID: ${payment.order_id} (authorized)`);
+            logger.warn(`[RZP-WH] No payment record found for authorized event`, { order: payment.order_id });
         }
 
         // Note: If auto-capture is enabled (default), payment.captured will follow
@@ -170,7 +168,7 @@ export class RazorpayWebhookService {
         const payment = payload.payload.payment?.entity;
         if (!payment) return;
 
-        console.log(`[RZP-WH] ✅ Payment CAPTURED: ${payment.id} | ₹${payment.amount / 100} | ${payment.method}`);
+        logger.success(`[RZP-WH] Payment CAPTURED`, { payment: payment.id, amount: payment.amount / 100 });
 
         const paymentRecord = await this.findPaymentByOrderId(payment.order_id);
 
@@ -189,15 +187,15 @@ export class RazorpayWebhookService {
                     tax: payment.tax,
                 };
                 await paymentRecord.save();
-                console.log(`[RZP-WH] Record ${paymentRecord._id} updated: ${previousStatus} -> completed (captured)`);
+                logger.info(`[RZP-WH] Record updated to completed (captured)`, { paymentId: paymentRecord._id });
 
                 // Activate the user's plan (this sends the success notification internally)
                 await this.activateUserPlan(paymentRecord);
             } else {
-                console.log(`[RZP-WH] Payment ${payment.id} already completed, skipping.`);
+                logger.debug(`[RZP-WH] Payment already completed, skipping.`, { payment: payment.id });
             }
         } else {
-            console.warn(`[RZP-WH] ⚠️ No payment record found for Order ID: ${payment.order_id} (captured)`);
+            logger.warn(`[RZP-WH] No payment record found for captured event`, { order: payment.order_id });
         }
     }
 
@@ -208,7 +206,7 @@ export class RazorpayWebhookService {
         const payment = payload.payload.payment?.entity;
         if (!payment) return;
 
-        console.log(`[RZP-WH] ❌ Payment FAILED: ${payment.id} | ${payment.error_code}: ${payment.error_description}`);
+        logger.error(`[RZP-WH] Payment FAILED`, { payment: payment.id, error: payment.error_code, description: payment.error_description });
 
         const paymentRecord = await this.findPaymentByOrderId(payment.order_id);
 
@@ -226,12 +224,12 @@ export class RazorpayWebhookService {
                 errorReason: payment.error_reason,
             };
             await paymentRecord.save();
-            console.log(`[RZP-WH] Record ${paymentRecord._id} updated: ${previousStatus} -> failed`);
+            logger.info(`[RZP-WH] Record updated to failed`, { paymentId: paymentRecord._id });
 
             // Notify user about failed payment
             await this.notifyUserPaymentFailed(paymentRecord, payment);
         } else {
-            console.warn(`[RZP-WH] ⚠️ No payment record found for Order ID: ${payment.order_id} (failed)`);
+            logger.warn(`[RZP-WH] No payment record found for failed event`, { order: payment.order_id });
         }
     }
 
@@ -247,7 +245,7 @@ export class RazorpayWebhookService {
         const payment = payload.payload.payment?.entity;
         if (!refund) return;
 
-        console.log(`[RZP-WH] Refund CREATED: ${refund.id} | ₹${refund.amount / 100} | Parent: ${refund.payment_id}`);
+        logger.info(`[RZP-WH] Refund CREATED`, { refund: refund.id, amount: refund.amount / 100, parent: refund.payment_id });
 
         const paymentRecord = await PaymentEntity.findOne({ gatewayPaymentId: refund.payment_id });
 
@@ -262,9 +260,9 @@ export class RazorpayWebhookService {
                 },
             };
             await paymentRecord.save();
-            console.log(`[RZP-WH] Refund ${refund.id} recorded for Payment ${paymentRecord.gatewayPaymentId}`);
+            logger.debug(`[RZP-WH] Refund recorded for Payment`, { refund: refund.id, payment: paymentRecord.gatewayPaymentId });
         } else {
-            console.warn(`[RZP-WH] ⚠️ No payment record found for Payment ID: ${refund.payment_id} (refund created)`);
+            logger.warn(`[RZP-WH] No payment record found for refund created event`, { payment: refund.payment_id });
         }
     }
 
@@ -275,7 +273,7 @@ export class RazorpayWebhookService {
         const refund = (payload.payload as any).refund?.entity;
         if (!refund) return;
 
-        console.log(`[RZP-WH] ✅ Refund PROCESSED: ${refund.id}`);
+        logger.success(`[RZP-WH] Refund PROCESSED`, { refund: refund.id });
 
         const paymentRecord = await PaymentEntity.findOne({ gatewayPaymentId: refund.payment_id });
 
@@ -294,11 +292,11 @@ export class RazorpayWebhookService {
                 },
             };
             await paymentRecord.save();
-            console.log(`[RZP-WH] Record ${paymentRecord._id} updated: ${previousStatus} -> ${paymentRecord.status} (refunded)`);
+            logger.info(`[RZP-WH] Record updated to refunded`, { paymentId: paymentRecord._id, status: paymentRecord.status });
 
             // If full refund, deactivate user's plan
             if (isFullRefund) {
-                console.log(`[RZP-WH] Full refund. Deactivating plan for user: ${paymentRecord.userId}`);
+                logger.info(`[RZP-WH] Full refund. Deactivating plan`, { user: paymentRecord.userId });
                 await this.deactivateUserPlan(paymentRecord);
 
                 // Only send refund notification if status changed to refunded just now
@@ -306,10 +304,10 @@ export class RazorpayWebhookService {
                     await this.notifyUserRefundProcessed(paymentRecord, refund.amount);
                 }
             } else {
-                console.log(`[RZP-WH] Partial refund of ₹${refund.amount / 100} processed.`);
+                logger.info(`[RZP-WH] Partial refund processed`, { amount: refund.amount / 100 });
             }
         } else {
-            console.warn(`[RZP-WH] ⚠️ No payment record found for Payment ID: ${refund.payment_id} (refund processed)`);
+            logger.warn(`[RZP-WH] No payment record found for refund processed event`, { payment: refund.payment_id });
         }
     }
 
@@ -320,7 +318,7 @@ export class RazorpayWebhookService {
         const refund = (payload.payload as any).refund?.entity;
         if (!refund) return;
 
-        console.log(`[RZP-WH] ❌ Refund FAILED: ${refund.id}`);
+        logger.error(`[RZP-WH] Refund FAILED`, { refund: refund.id });
 
         const paymentRecord = await PaymentEntity.findOne({ gatewayPaymentId: refund.payment_id });
 
@@ -334,13 +332,13 @@ export class RazorpayWebhookService {
                 },
             };
             await paymentRecord.save();
-            console.log(`[RZP-WH] Refund ${refund.id} marked FAILED for Payment ${paymentRecord.gatewayPaymentId}`);
+            logger.warn(`[RZP-WH] Refund marked FAILED for Payment`, { refund: refund.id, payment: paymentRecord.gatewayPaymentId });
         } else {
-            console.warn(`[RZP-WH] ⚠️ No payment record found for Payment ID: ${refund.payment_id} (refund failed)`);
+            logger.warn(`[RZP-WH] No payment record found for refund failed event`, { payment: refund.payment_id });
         }
 
         // Notify admin about failed refund
-        console.log(`[RZP-WH] 🚨 ADMIN ALERT: Refund failed for payment ${refund.payment_id}`);
+        logger.fatal(`[RZP-WH] ADMIN ALERT: Refund failed for payment`, { payment: refund.payment_id });
     }
 
     // ══════════════════════════════════════════════════════════════════════════
@@ -351,7 +349,7 @@ export class RazorpayWebhookService {
         const dispute = payload.payload.dispute?.entity;
         if (!dispute) return;
 
-        console.log(`[RZP-WH] 🚨 Dispute CREATED: ${dispute.id}`);
+        logger.warn(`[RZP-WH] Dispute CREATED`, { dispute: dispute.id, payment: dispute.payment_id });
 
         await this.updatePaymentWithDispute(dispute.payment_id, {
             disputeId: dispute.id,
@@ -371,7 +369,7 @@ export class RazorpayWebhookService {
         const dispute = payload.payload.dispute?.entity;
         if (!dispute) return;
 
-        console.log(`[RZP-WH] ✅ Dispute WON: ${dispute.id}`);
+        logger.success(`[RZP-WH] Dispute WON`, { dispute: dispute.id });
 
         await this.updatePaymentWithDispute(dispute.payment_id, {
             disputeStatus: 'won',
@@ -385,7 +383,7 @@ export class RazorpayWebhookService {
         const dispute = payload.payload.dispute?.entity;
         if (!dispute) return;
 
-        console.log(`[RZP-WH] ❌ Dispute LOST: ${dispute.id}`);
+        logger.error(`[RZP-WH] Dispute LOST`, { dispute: dispute.id });
 
         const paymentRecord = await PaymentEntity.findOne({ gatewayPaymentId: dispute.payment_id });
 
@@ -401,14 +399,14 @@ export class RazorpayWebhookService {
                 },
             };
             await paymentRecord.save();
-            console.log(`[RZP-WH] Record ${paymentRecord._id} updated: ${previousStatus} -> disputed_lost`);
+            logger.info(`[RZP-WH] Record updated to disputed_lost`, { paymentId: paymentRecord._id });
 
             // Deactivate user's plan and flag account
-            console.log(`[RZP-WH] Dispute lost. Deactivating plan for user: ${paymentRecord.userId}`);
+            logger.info(`[RZP-WH] Dispute lost. Deactivating plan`, { user: paymentRecord.userId });
             await this.deactivateUserPlan(paymentRecord);
             await this.flagUserForDispute(paymentRecord, dispute);
         } else {
-            console.warn(`[RZP-WH] ⚠️ No payment record found for Payment ID: ${dispute.payment_id} (dispute lost)`);
+            logger.warn(`[RZP-WH] No payment record found for dispute lost event`, { payment: dispute.payment_id });
         }
 
         await this.notifyAdminDispute(dispute, 'lost');
@@ -418,7 +416,7 @@ export class RazorpayWebhookService {
         const dispute = payload.payload.dispute?.entity;
         if (!dispute) return;
 
-        console.log(`[RZP-WH] Dispute CLOSED: ${dispute.id}`);
+        logger.info(`[RZP-WH] Dispute CLOSED`, { dispute: dispute.id });
 
         await this.updatePaymentWithDispute(dispute.payment_id, {
             disputeStatus: 'closed',
@@ -432,7 +430,7 @@ export class RazorpayWebhookService {
         const dispute = payload.payload.dispute?.entity;
         if (!dispute) return;
 
-        console.log(`[RZP-WH] Dispute UNDER REVIEW: ${dispute.id}`);
+        logger.info(`[RZP-WH] Dispute UNDER REVIEW`, { dispute: dispute.id });
 
         await this.updatePaymentWithDispute(dispute.payment_id, {
             disputeStatus: 'under_review',
@@ -445,7 +443,7 @@ export class RazorpayWebhookService {
         const dispute = payload.payload.dispute?.entity;
         if (!dispute) return;
 
-        console.log(`[RZP-WH] 🚨🚨 Dispute ACTION REQUIRED: ${dispute.id}`);
+        logger.fatal(`[RZP-WH] Dispute ACTION REQUIRED`, { dispute: dispute.id });
 
         await this.updatePaymentWithDispute(dispute.payment_id, {
             disputeStatus: 'action_required',
@@ -464,7 +462,7 @@ export class RazorpayWebhookService {
         if (!downtime) return;
 
         const severityEmoji = downtime.severity === 'high' ? '🔴' : downtime.severity === 'medium' ? '🟠' : '🟡';
-        console.log(`[RZP-WH] ${severityEmoji} Downtime STARTED: ${downtime.method}`);
+        logger.warn(`[RZP-WH] Downtime STARTED`, { method: downtime.method, severity: downtime.severity });
 
         await this.logDowntime(downtime, 'started');
         await this.notifyAdminDowntime(downtime, 'started');
@@ -474,7 +472,7 @@ export class RazorpayWebhookService {
         const downtime = payload.payload.downtime?.entity;
         if (!downtime) return;
 
-        console.log(`[RZP-WH] Downtime UPDATED: ${downtime.id}`);
+        logger.info(`[RZP-WH] Downtime UPDATED`, { downtime: downtime.id });
         await this.logDowntime(downtime, 'updated');
     }
 
@@ -482,7 +480,7 @@ export class RazorpayWebhookService {
         const downtime = payload.payload.downtime?.entity;
         if (!downtime) return;
 
-        console.log(`[RZP-WH] 🟢 Downtime RESOLVED: ${downtime.id}`);
+        logger.success(`[RZP-WH] Downtime RESOLVED`, { downtime: downtime.id });
         await this.logDowntime(downtime, 'resolved');
         await this.notifyAdminDowntime(downtime, 'resolved');
     }
@@ -509,7 +507,7 @@ export class RazorpayWebhookService {
         const expiresAt = new Date(now);
         expiresAt.setDate(expiresAt.getDate() + 30);
 
-        console.log(`[RZP-WH] Activating plan ${planId} for user ${userId}`);
+        logger.info(`[RZP-WH] Activating plan`, { plan: planId, user: userId });
 
         if (isOwner) {
             await activateOwnerBusinessLogic(paymentRecord);
@@ -517,7 +515,7 @@ export class RazorpayWebhookService {
             await activateTenantBusinessLogic(paymentRecord);
         }
 
-        console.log(`[RZP-WH] Plan ${planId} activated until ${expiresAt.toISOString()}`);
+        logger.success(`[RZP-WH] Plan activated`, { plan: planId, expiry: expiresAt.toISOString() });
     }
 
     /**
@@ -528,7 +526,7 @@ export class RazorpayWebhookService {
         const isOwner = paymentRecord.planId.startsWith('owner_');
         const fallbackPlan = isOwner ? 'owner_free' : 'tenant_free';
 
-        console.log(`[RZP-WH] Deactivating plan for user ${userId}, falling back to ${fallbackPlan}`);
+        logger.warn(`[RZP-WH] Deactivating plan`, { user: userId, fallback: fallbackPlan });
 
         if (isOwner) {
             await activateOwnerBusinessLogic(null, userId, fallbackPlan);
@@ -559,7 +557,7 @@ export class RazorpayWebhookService {
                 );
             }
         } catch (err) {
-            console.error('[RZP-WH] ❌ Failed to send failure notification', err);
+            logger.error('[RZP-WH] Failed to send failure notification', err);
         }
     }
 
@@ -576,7 +574,7 @@ export class RazorpayWebhookService {
                 );
             }
         } catch (err) {
-            console.error('[RZP-WH] ❌ Failed to send refund notification', err);
+            logger.error('[RZP-WH] Failed to send refund notification', err);
         }
     }
 
@@ -627,7 +625,7 @@ export class RazorpayWebhookService {
             await User.findByIdAndUpdate(userId, { $set: flagData });
         }
 
-        console.log(`[RZP-WH] User ${userId} flagged for lost dispute`);
+        logger.info(`[RZP-WH] User flagged for lost dispute`, { user: userId });
     }
 
     private async notifyAdminDispute(
@@ -646,7 +644,7 @@ export class RazorpayWebhookService {
         };
 
         const emoji = statusEmoji[status] || '📋';
-        console.log(`[RZP-WH] ${urgentFlag}${emoji} DISPUTE ${status.toUpperCase()} | ID: ${dispute.id} | Amount: ₹${(dispute.amount / 100).toFixed(2)} | Reason: ${dispute.reason_code}`);
+        logger.warn(`[RZP-WH] DISPUTE UPDATED`, { status: status.toUpperCase(), id: dispute.id, amount: dispute.amount / 100, reason: dispute.reason_code, urgent });
 
         // TODO: Integrate with Slack/Email notifications
     }
@@ -669,7 +667,7 @@ export class RazorpayWebhookService {
             loggedAt: new Date().toISOString(),
         };
 
-        console.log(`[RZP-WH] Downtime Log: ${eventType} | ${downtime.method} | Severity: ${downtime.severity}`);
+        logger.info(`[RZP-WH] Downtime Log`, { event: eventType, method: downtime.method, severity: downtime.severity });
     }
 
     private async notifyAdminDowntime(downtime: RazorpayDowntimeEntity, status: 'started' | 'resolved'): Promise<void> {
@@ -681,7 +679,7 @@ export class RazorpayWebhookService {
         };
 
         const sEmoji = severityEmoji[downtime.severity] || '📋';
-        console.log(`[RZP-WH] ${emoji} ${sEmoji} PAYMENT DOWNTIME ${status.toUpperCase()} | ID: ${downtime.id} | Method: ${downtime.method} | Severity: ${downtime.severity}`);
+        logger.warn(`[RZP-WH] PAYMENT DOWNTIME ALERT`, { status: status.toUpperCase(), id: downtime.id, method: downtime.method, severity: downtime.severity });
     }
 }
 

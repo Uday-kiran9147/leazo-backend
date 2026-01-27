@@ -1,4 +1,5 @@
 import { sendPushNotification } from './push_notifications';
+import { logger } from './logger';
 import { UserActivity } from '../models/admin/userActivity';
 import { DailyActiveUser, MonthlyActiveUser, YearlyActiveUser } from '../models/admin/activity';
 
@@ -15,7 +16,7 @@ export class BackgroundService {
     static async sendNotification(token: string, title: string, body: string) {
         // We don't await this inside the controller/service that calls it
         sendPushNotification(token, title, body).catch(err => {
-            console.error('Background Notification Error:', err);
+            logger.error('Background Notification Error', err);
         });
     }
 
@@ -63,7 +64,7 @@ export class BackgroundService {
         this.activityBatch = [];
 
         try {
-            console.log(`Processing batch of ${batch.length} activities...`);
+            logger.debug(`Processing batch of ${batch.length} activities...`);
             
             // 1. Bulk insert user activities
             await UserActivity.insertMany(batch.map(a => ({
@@ -101,7 +102,7 @@ export class BackgroundService {
                 ]);
             }
         } catch (error) {
-            console.error('Failed to process activity batch:', error);
+            logger.error('Failed to process activity batch', error);
             // In a real system, we might want to retry or log to a dead letter queue
         }
     }

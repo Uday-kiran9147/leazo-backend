@@ -5,6 +5,7 @@ import ApiError, { handleError } from "../utils/api_error";
 import ApiResponse from "../utils/api_response";
 import sendEmail from "../utils/mail";
 import crypto from "crypto";
+import { logger } from "../utils/logger";
 
 // Signup controller to handle user registration
 export const signUp = async (req: Request, res: Response) => {
@@ -63,7 +64,7 @@ export const login = async (req: Request, res: Response) => {
 export const forgotPassword = async (req: Request, res: Response) => {
     try {
         const { email } = req.body;
-        console.log(`Forgot password OTP request received for email: ${email}`);
+        logger.info(`Forgot password OTP request received`, { email });
 
         if (!email) {
             throw new ApiError(400, "Email is required");
@@ -72,7 +73,7 @@ export const forgotPassword = async (req: Request, res: Response) => {
         const user = await User.findOne({ email });
 
         if (!user) {
-            console.warn(`Forgot password request: User not found for email: ${email}`);
+            logger.warn(`Forgot password request: User not found`, { email });
             throw new ApiError(404, "User with this email does not exist");
         }
 
@@ -94,11 +95,11 @@ export const forgotPassword = async (req: Request, res: Response) => {
                 message,
             });
 
-            console.log(`OTP generated and sent to email: ${user.email}`);
+            logger.info(`OTP generated and sent to email`, { email: user.email });
 
             return res.status(200).json(new ApiResponse(200, "OTP sent to email", {}));
-        } catch (error) {
-            console.error(`Failed to send password reset email to ${user.email}:`, error);
+        } catch (error: any) {
+            logger.error(`Failed to send password reset email`, { email: user.email, error: error.message || error });
             user.resetPasswordToken = undefined;
             user.resetPasswordExpires = undefined;
             await user.save();
@@ -114,7 +115,7 @@ export const forgotPassword = async (req: Request, res: Response) => {
 export const resetPassword = async (req: Request, res: Response) => {
     try {
         const { email, otp, newPassword } = req.body;
-        console.log(`Password reset attempt for email: ${email}`);
+        logger.info(`Password reset attempt`, { email });
 
         if (!email || !otp || !newPassword) {
             throw new ApiError(400, "Email, OTP, and new password are required");
@@ -127,7 +128,7 @@ export const resetPassword = async (req: Request, res: Response) => {
         });
 
         if (!user) {
-            console.warn(`Password reset failed: Invalid or expired OTP for email: ${email}`);
+            logger.warn(`Password reset failed: Invalid or expired OTP`, { email });
             throw new ApiError(400, "Invalid OTP or OTP has expired");
         }
 
@@ -138,7 +139,7 @@ export const resetPassword = async (req: Request, res: Response) => {
 
         await user.save();
 
-        console.log(`Password reset successful for email: ${email}`);
+        logger.info(`Password reset successful`, { email });
 
         return res.status(200).json(new ApiResponse(200, "Password reset successful", {}));
     } catch (error: any) {

@@ -5,6 +5,7 @@
 
 import crypto from 'crypto';
 import { razorpayClient } from './razorpay.client';
+import { logger } from '../../utils/logger';
 import { RAZORPAY_CONFIG } from '../../config/razorpayConfig';
 import { PaymentEntity } from '../../payments/payments.models';
 import { getPlanRules } from '../../config/ownerConfig';
@@ -90,9 +91,10 @@ export class RazorpayOrderService {
             .digest('hex');
 
         if (process.env.NODE_ENV !== 'production') {
-            console.log('[Razorpay] Verifying payment signature');
-            console.log('[Razorpay] Order ID:', razorpayOrderId);
-            console.log('[Razorpay] Payment ID:', razorpayPaymentId);
+            logger.debug('[Razorpay] Verifying payment signature', {
+                orderId: razorpayOrderId,
+                paymentId: razorpayPaymentId
+            });
         }
 
         return expectedSignature === razorpaySignature;

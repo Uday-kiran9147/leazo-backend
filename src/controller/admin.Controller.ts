@@ -11,6 +11,7 @@ import { Notification } from "../models/notification.model";
 import { MongoosePortionRepository } from "../repositories/PortionRepository";
 import { MongooseOwnerRepository } from "../repositories/OwnerRepository";
 import { PortionService } from "../services/PortionService";
+import { logger } from "../utils/logger";
 
 /**
  * Helper function to fetch user device tokens with names
@@ -68,7 +69,7 @@ export const sendNotificationToUsers = async (req: Request, res: Response) => {
                 try {
                     await sendPushNotification(deviceToken, title, body);
                 } catch (pushError) {
-                    console.error(`Failed to send push notification to user ${user._id}:`, pushError);
+                    logger.error(`Failed to send push notification to user`, { user: user._id, error: pushError });
                 }
             }
         });
@@ -127,7 +128,7 @@ interface DashboardStats {
 }
 
 export const getDashboardStats = async (_: Request, res: Response) => {
-    console.log(`[${new Date().toISOString()}] Fetching dashboard stats...`);
+    logger.debug("Fetching dashboard stats");
     
     try {
         const stats: DashboardStats[] = await Portion.aggregate([
@@ -221,7 +222,7 @@ export const getDashboardStats = async (_: Request, res: Response) => {
         return res.status(200).json(new ApiResponse(200, "Dashboard statistics fetched successfully.", resultStats));
 
     } catch (error) {
-        console.error(`[${new Date().toISOString()}] Error fetching dashboard stats:`, error);
+        logger.error("Error fetching dashboard stats", error);
         return res.status(500).json({ 
             message: "Failed to fetch dashboard statistics",
             error: error instanceof Error ? error.message : 'Unknown error'
@@ -231,15 +232,15 @@ export const getDashboardStats = async (_: Request, res: Response) => {
 
 
 async function clearPortionsCache() {
-    console.log("Portions cache cleared.");
+    logger.debug("Portions cache cleared");
     await RedisClientManager.delete("portions:all");
 }
 async function clearUsersCache() {
-    console.log("Users cache cleared.");
+    logger.debug("Users cache cleared");
     await RedisClientManager.delete("users:all");
 }
 export const UpdateRole = async (req: Request, res: Response) => {
-    console.log(req.originalUrl);
+    logger.debug(`Update Role request: ${req.originalUrl}`);
 
     const validRoles = ["Admin", "User", "Moderator"];
     const { id } = req.params;
@@ -274,10 +275,10 @@ export const UpdateRole = async (req: Request, res: Response) => {
 
 }
 export const getPortionsByStatus = async (req: Request, res: Response) => {
-    console.log(req.originalUrl);
+    logger.debug(`Get Portions By Status: ${req.originalUrl}`);
     try {
         const { status } = req.params;
-        console.log(status);
+        logger.debug("Requested status", { status });
 
         const portions = await Portion.find({ approvalStatus: status });
         var apiResponse: ApiResponse;
@@ -338,7 +339,7 @@ export const UpdatePortionStatus = async (req: Request, res: Response) => {
         await clearPortionsCache();
         return res.status(200).json(apiResponse);
     } catch (error) {
-        console.error("Error updating portion status:", error);
+        logger.error("Error updating portion status", error);
         const apiError = handleError(error, req, res);
         res.status(apiError.status).json(apiError);
     }

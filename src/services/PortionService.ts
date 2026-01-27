@@ -1,6 +1,7 @@
 import { IPortionRepository } from "../repositories/PortionRepository";
 import { IOwnerRepository } from "../repositories/OwnerRepository";
 import { RedisClientManager } from "../cache/RedisClientManager";
+import { logger } from "../utils/logger";
 import { getPlanRules } from "../config/ownerConfig";
 
 export class PortionService {
@@ -102,14 +103,17 @@ export class PortionService {
         const oldPortion = await this.portionRepository.findById(portionId);
         if (!oldPortion) return null;
 
-        console.log(`Updating portion ${portionId}. Previous isActive: ${oldPortion.isActive}, New isActive: ${updateData.isActive}`);
+        logger.debug(`Updating portion ${portionId}`, {
+            previousIsActive: oldPortion.isActive,
+            newIsActive: updateData.isActive
+        });
 
         const portion = await this.portionRepository.update(portionId, updateData);
         if (portion) {
             // Handle activeListings count change
             if (updateData.isActive !== undefined && updateData.isActive !== oldPortion.isActive) {
                 const increment = updateData.isActive ? 1 : -1;
-                console.log(`Usage count change for owner ${portion.ownerId}: ${increment}`);
+                logger.debug(`Usage count change for owner`, { owner: portion.ownerId, increment });
                 await this.ownerRepository.updateActiveListings(portion.ownerId.toString(), increment);
                 await RedisClientManager.delete(`owner:${portion.ownerId}`);
             }

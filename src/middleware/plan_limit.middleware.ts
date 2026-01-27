@@ -3,6 +3,7 @@ import { Owner } from "../models/owner.model";
 import { Portion } from "../models/portion.model";
 import { getPlanRules } from "../config/ownerConfig";
 import ApiResponse from "../utils/api_response";
+import { logger } from "../utils/logger";
 
 /**
  * Middleware to enforce owner plan limits before allowing certain actions.
@@ -23,14 +24,14 @@ export const checkPlanLimit = async (req: Request, res: Response, next: NextFunc
         // Only check if they are already at or over the limit
         if (owner.usage.activeListings >= planRules.activeListings) {
             if (await isActivatingPortion(req)) {
-                console.log(`[PlanLimit] Muting activation for owner ${ownerId} (Limit: ${planRules.activeListings})`);
+                logger.warn(`[PlanLimit] Muting activation for owner`, { owner: ownerId, limit: planRules.activeListings });
                 applyActivationMute(req);
             }
         }
 
         next();
     } catch (error) {
-        console.error("PlanLimitMiddleware Error:", error);
+        logger.error("PlanLimitMiddleware Error", error);
         return res.status(500).json(new ApiResponse(500, "Internal server error checking plan limits", null));
     }
 };

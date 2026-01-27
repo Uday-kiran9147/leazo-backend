@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 import ApiError from "../utils/api_error";
 import { User } from "../models/user.model";
+import { logger } from "../utils/logger";
 
 /**
  * Middleware to authenticate a user based on a JWT token.
@@ -37,7 +38,7 @@ export const auth = async (req: Request, res: Response, next: NextFunction) => {
             return res.status(400).send({ error: "Please provide secret key" })
         }
         const decoded = jwt.verify(token, secretKey) as jwt.JwtPayload;
-        // console.log("decoded",decoded);
+        logger.debug("Token decoded successfully", { userId: decoded._id });
         
         
         // Safely assign decoded token and extract user ID

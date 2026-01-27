@@ -5,6 +5,7 @@ import { isAdminMiddleware } from '../middleware/isAdmin.middleware';
 import { analyticsService } from '../controller/analytic.Controller';
 import { User } from '../models/user.model';
 import ApiResponse from '../utils/api_response';
+import { logger } from '../utils/logger';
 
 export const adminRouter = Router();
 
@@ -77,7 +78,7 @@ adminRouter.get('/yau', auth, isAdminMiddleware, async (req, res) => {
 
 // Get Retention Rate
 adminRouter.get('/retention', auth, isAdminMiddleware, async (req, res) => {
-  console.log(req.query);
+  logger.debug("Retention rate query parameters", { query: req.query });
   
   try {
     const { period } = req.query;

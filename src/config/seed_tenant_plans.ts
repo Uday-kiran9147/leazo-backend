@@ -1,5 +1,6 @@
 import { Plan, UserType } from "../models/plan.model";
 import { TENANT_PLAN_RULES } from "./tenantConfig";
+import { logger } from "../utils/logger";
 
 const TENANT_PLAN_META = {
   tenant_free: {
@@ -47,8 +48,8 @@ export const seedTenantPlans = async () => {
 
     await Plan.bulkWrite(bulkOps);
 
-    console.log(`✅ Seeded ${plans.length} tenant plans with KV features`);
+    logger.success(`Seeded ${plans.length} tenant plans with KV features`);
   } catch (err) {
-    console.error("❌ Failed to seed tenant plans:", err);
+    logger.error("Failed to seed tenant plans", err);
   }
 };

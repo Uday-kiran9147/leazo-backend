@@ -1,6 +1,7 @@
 import * as admin from 'firebase-admin';
 import fs from 'fs';
 import path from 'path';
+import { logger } from './logger';
 
 const serviceAccountPath = process.env.FIREBASE_SERVICE_ACCOUNT_PATH
   ? path.resolve(process.cwd(), process.env.FIREBASE_SERVICE_ACCOUNT_PATH)
@@ -14,7 +15,7 @@ if (fs.existsSync(serviceAccountPath)) {
   });
 } else {
   if (process.env.NODE_ENV !== 'test') {
-    console.warn("service_account.json not found. Push notifications will be disabled.");
+    logger.warn("service_account.json not found. Push notifications will be disabled.");
   }
 }
 
@@ -23,7 +24,7 @@ if (fs.existsSync(serviceAccountPath)) {
 export async function sendPushNotification(token: string, title: string, body: string) {
   if (admin.apps.length === 0) {
     if (process.env.NODE_ENV !== 'test') {
-      console.log('Firebase not initialized. Skipping notification.');
+      logger.info('Firebase not initialized. Skipping notification.');
     }
     return;
   }
@@ -41,16 +42,16 @@ export async function sendPushNotification(token: string, title: string, body: s
   };
   try {
     const response = await admin.messaging().send(message);
-    console.log('Successfully sent notification:');
+    logger.debug('Successfully sent notification to:', token);
   } catch (error: any) {
-    console.error('Error sending message:', error);
+    logger.error('Error sending message:', error);
     if (error.errorInfo?.code === 'messaging/registration-token-not-registered') {
-      console.log(`Clearing invalid FCM token: ${token}`);
+      logger.warn(`Clearing invalid FCM token: ${token}`);
       try {
         const mongoose = await import('mongoose');
         await mongoose.model('User').updateOne({ deviceToken: token }, { $unset: { deviceToken: "" } });
       } catch (dbError) {
-        console.error('Failed to clear invalid FCM token from database:', dbError);
+        logger.error('Failed to clear invalid FCM token from database:', dbError);
       }
     }
   }

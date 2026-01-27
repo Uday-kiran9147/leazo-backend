@@ -5,11 +5,12 @@ import { getPlanRules } from "../config/ownerConfig";
 import { RedisClientManager } from "../cache/RedisClientManager";
 import { sendPushNotification } from "../utils/push_notifications";
 import { User } from "../models/user.model";
+import { logger } from "../utils/logger";
 import { getTenantPlanRules } from "../config/tenantConfig";
 import { Notification } from "../models/notification.model";
 
 export const activateTenantBusinessLogic = async (payment: IPayment | null, userId?: string, planIdStr?: string) => {
-    console.log("Activating tenant business logic");
+    logger.info("Activating tenant business logic");
 
     let user;
     if (payment) {
@@ -29,7 +30,7 @@ export const activateTenantBusinessLogic = async (payment: IPayment | null, user
     const planId = (payment ? payment.planId : planIdStr) as "tenant_free" | "tenant_smart_finder" | "tenant_premium";
     const plan = getTenantPlanRules(planId);
 
-    console.log("Updating tenant plan details for user:", user._id);
+    logger.debug("Updating tenant plan details", { user: user._id, plan: planId });
     await User.updateOne(
         { _id: user._id },
         {
@@ -51,7 +52,7 @@ export const activateTenantBusinessLogic = async (payment: IPayment | null, user
 const sendTenantNotification = async (userId: string, planId: string) => {
     const user = await User.findById(userId);
     if (user && user.deviceToken) {
-        console.log("Sending tenant notification to user:", user._id);
+        logger.debug("Sending tenant notification", { user: user._id });
         let title = "Tenant Plan Activated";
         let body = "Your tenant subscription has been successfully updated.";
 
@@ -74,19 +75,19 @@ const sendTenantNotification = async (userId: string, planId: string) => {
             try {
                 await sendPushNotification(user.deviceToken, title, body);
             } catch (err) {
-                console.error("Failed to send push notification to tenant", err);
+                logger.error("Failed to send push notification to tenant", err);
             }
         }
         try {
             await (Notification as any).createNotification(user._id, title, body, "success");
         } catch (err) {
-            console.error("Failed to create internal notification", err);
+            logger.error("Failed to create internal notification", err);
         }
     }
 };
 
 export const activateOwnerBusinessLogic = async (payment: IPayment | null, ownerId?: string, planIdStr?: string) => {
-    console.log("Activating Owner business logic");
+    logger.info("Activating Owner business logic");
     
     let owner;
     if (payment) {
@@ -137,6 +138,7 @@ export const activateOwnerBusinessLogic = async (payment: IPayment | null, owner
 
     if (bulkOps.length > 0) {
         await Portion.bulkWrite(bulkOps);
+        logger.debug("Portions status updated in bulk", { count: bulkOps.length });
     }
 
     const redis = RedisClientManager.getInstance();
@@ -166,6 +168,7 @@ export const activateOwnerBusinessLogic = async (payment: IPayment | null, owner
             "usage.tenantContactsUsed": 0
         }
     );
+    logger.success("Owner plan activated successfully", { owner: owner._id, plan: planId });
 
     try {
         const user = await User.findById(owner.userId);
@@ -173,7 +176,7 @@ export const activateOwnerBusinessLogic = async (payment: IPayment | null, owner
             await sendPlanNotification(user._id.toString(), user.deviceToken, planId);
         }
     } catch (err) {
-        console.error("Failed to send notification to owner", err);
+        logger.error("Failed to send notification to owner", err);
     }
 };
 
@@ -204,12 +207,12 @@ const sendPlanNotification = async (userId: string, deviceToken: string, planId:
         try {
             await sendPushNotification(deviceToken, title, body);
         } catch (err) {
-            console.error("Failed to send push notification to owner", err);
+            logger.error("Failed to send push notification to owner", err);
         }
         try {
             await (Notification as any).createNotification(userId, title, body, "success");
         } catch (err) {
-            console.error("Failed to create internal notification", err);
+            logger.error("Failed to create internal notification", err);
         }
     }
 }
