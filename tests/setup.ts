@@ -21,6 +21,19 @@ jest.mock('@upstash/redis', () => ({
   })),
 }));
 
+// Mock chalk to avoid ESM issues with chalk v5 in Jest environments
+jest.mock('chalk', () => ({
+  blue: { bold: (s: string) => s },
+  green: { bold: (s: string) => s },
+  yellow: { bold: (s: string) => s },
+  red: { bold: (s: string) => s, stack: (s: string) => s },
+  white: (s: string) => s,
+  cyan: (s: string) => s,
+  dim: (s: string) => s,
+  bgRed: { white: { bold: (s: string) => s } },
+  magenta: { bold: (s: string) => s },
+}));
+
 // Global Mock Redis Client Manager
 jest.mock('../src/cache/RedisClientManager', () => ({
   RedisClientManager: {
