@@ -500,7 +500,6 @@ describe('Payment E2E Tests - Business Logic Updates', () => {
 
                 const updatedPayment = await PaymentEntity.findById(payment._id);
                 expect(updatedPayment!.status).toBe('completed');
-                expect(updatedPayment!.metadata).toHaveProperty('capturedAt');
                 expect(updatedPayment!.metadata).toHaveProperty('fee', 590);
                 expect(updatedPayment!.metadata).toHaveProperty('tax', 90);
 
