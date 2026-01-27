@@ -82,7 +82,7 @@ export const forgotPassword = async (req: Request, res: Response) => {
 
         // Set OTP and expiration (10 minutes)
         user.resetPasswordToken = otp;
-        user.resetPasswordExpires = new Date(Date.now() + 10 * 60 * 1000);
+        user.resetPasswordExpires = new Date(Date.now() + 10 * 60 * 1000).toISOString() as any;
 
         await user.save();
 

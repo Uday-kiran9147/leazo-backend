@@ -26,10 +26,10 @@ export class PortionService {
         if (diffInDays >= 7) {
             await this.ownerRepository.update(owner._id.toString(), {
                 "usage.weeklyBoostsUsed": 0,
-                lastBoostResetAt: now
+                lastBoostResetAt: now.toISOString()
             });
             owner.usage.weeklyBoostsUsed = 0;
-            owner.lastBoostResetAt = now;
+            owner.lastBoostResetAt = now.toISOString() as any;
         }
 
         // 2. Check Plan Limit
@@ -46,7 +46,7 @@ export class PortionService {
 
         // 4. Boost Portion
         const boostHours = 24;
-        const boostExpiresAt = new Date(now.getTime() + boostHours * 60 * 60 * 1000);
+        const boostExpiresAt = new Date(now.getTime() + boostHours * 60 * 60 * 1000).toISOString();
 
         const updatedPortion = await this.portionRepository.update(portionId, {
             isBoosted: true,

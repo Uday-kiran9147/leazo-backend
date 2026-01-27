@@ -1,4 +1,3 @@
-process.env.TZ = 'Asia/Kolkata';
 import dotenv from 'dotenv';
 import path from 'path';
 import { logger } from './utils/logger';

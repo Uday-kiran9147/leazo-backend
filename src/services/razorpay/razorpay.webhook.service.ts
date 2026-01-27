@@ -616,7 +616,7 @@ export class RazorpayWebhookService {
             'flags.lastDisputeId': dispute.id,
             'flags.lastDisputePaymentId': dispute.payment_id,
             'flags.lastDisputeAmount': dispute.amount_deducted,
-            'flags.lastDisputeAt': new Date(),
+            'flags.lastDisputeAt': new Date().toISOString(),
         };
 
         if (isOwner) {

@@ -23,15 +23,7 @@ class Logger {
     }
 
     private getTimestamp(): string {
-        return new Date().toLocaleString('en-IN', {
-            hour12: true,
-            year: 'numeric',
-            month: 'short',
-            day: '2-digit',
-            hour: '2-digit',
-            minute: '2-digit',
-            second: '2-digit'
-        });
+        return new Date().toISOString();
     }
 
     private format(level: LogLevel, message: string, ...args: any[]): string {

@@ -35,8 +35,8 @@ export const activateTenantBusinessLogic = async (payment: IPayment | null, user
         { _id: user._id },
         {
             planId: planId,
-            planActivatedAt: now,
-            planExpiresAt: expiresAt,
+            planActivatedAt: now.toISOString(),
+            planExpiresAt: expiresAt.toISOString(),
             autoRenew: true,
             "usage.ownerContactsUsed": 0
         }
@@ -158,8 +158,8 @@ export const activateOwnerBusinessLogic = async (payment: IPayment | null, owner
         { _id: owner._id },
         {
             planId: planId,
-            planActivatedAt: now,
-            planExpiresAt: expiresAt,
+            planActivatedAt: now.toISOString(),
+            planExpiresAt: expiresAt.toISOString(),
             verifiedBadge: plan.verifiedBadge,
             visibility: plan.visibility,
             autoRenew: plan.autoRenew,

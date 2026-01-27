@@ -29,7 +29,7 @@ export class BackgroundService {
             activityType,
             deviceInfo,
             ipAddress,
-            timestamp: new Date()
+            timestamp: new Date().toISOString()
         });
 
         if (this.activityBatch.length >= this.BATCH_SIZE) {

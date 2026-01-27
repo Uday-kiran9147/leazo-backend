@@ -30,7 +30,7 @@ export const uploadFile = async (req: Request, res: Response) => {
             logger.error('Invalid folder value during upload', { folder });
             return res.status(400).json(apiResponse);
         }
-        const filename = `${Date.now()}-${Math.random().toString(36).substring(7)}-Leaz-storage-${file.originalname}`;
+        const filename = `${new Date().toISOString().replace(/[:.]/g, '-')}-${Math.random().toString(36).substring(7)}-Leaz-storage-${file.originalname}`;
         const filePath = `${folder}/${filename}`;
 
         // Create a storage reference with the desired path
