@@ -1,5 +1,15 @@
 import chalk from 'chalk';
 
+/**
+ * Enumeration of available logging levels for the application logger.
+ * @enum {string}
+ * @property {string} INFO - Informational messages for general application flow
+ * @property {string} WARN - Warning messages for potentially harmful situations
+ * @property {string} ERROR - Error messages for recoverable error conditions
+ * @property {string} DEBUG - Debug messages for development and troubleshooting
+ * @property {string} SUCCESS - Success messages indicating successful operations
+ * @property {string} FATAL - Fatal messages for severe errors causing application termination
+ */
 export enum LogLevel {
     INFO = 'INFO',
     WARN = 'WARN',
