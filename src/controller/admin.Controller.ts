@@ -243,7 +243,7 @@ export const UpdateRole = async (req: Request, res: Response) => {
     logger.debug(`Update Role request: ${req.originalUrl}`);
 
     const validRoles = ["Admin", "User", "Moderator"];
-    const { id } = req.params;
+    const { id } = req.params as Record<string, string>;
     const { role } = req.body;
     if (!role || !id) {
         return res.status(400).json({ message: "Role and ID are required" });
@@ -277,7 +277,7 @@ export const UpdateRole = async (req: Request, res: Response) => {
 export const getPortionsByStatus = async (req: Request, res: Response) => {
     logger.debug(`Get Portions By Status: ${req.originalUrl}`);
     try {
-        const { status } = req.params;
+        const { status } = req.params as Record<string, string>;
         logger.debug("Requested status", { status });
 
         const portions = await Portion.find({ approvalStatus: status });
@@ -295,11 +295,11 @@ export const getPortionsByStatus = async (req: Request, res: Response) => {
 }
 export const UpdatePortionStatus = async (req: Request, res: Response) => {
     try {
-        const { id: portionId, status } = req.params;
+        const { id: portionId, status } = req.params as Record<string, string>;
 
         // Validate the status 📝, ⏸️, ✅, ❌
         const validStatuses = ["Review", "Hold", "Approved", "Rejected"];
-        if (!validStatuses.includes(status)) {
+        if (typeof status !== 'string' || !validStatuses.includes(status)) {
             return res.status(400).json({ message: "Invalid approval status provided." });
         }
 
@@ -328,12 +328,11 @@ export const UpdatePortionStatus = async (req: Request, res: Response) => {
 
         if (user && user.deviceToken) {
             await sendPushNotification(user.deviceToken, `${status}${emoji}`, message);
-            const notification = Notification.createNotification(
+            await Notification.createNotification(
                 user._id,
                 `${status}${emoji}`,
                 message,
             );
-            (await notification).save();
         }
 
         await clearPortionsCache();

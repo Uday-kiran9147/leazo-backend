@@ -148,23 +148,21 @@ userSchema.statics.findByCredentials = async function (
 };
 
 // Pre-save hook for password hashing
-userSchema.pre('save', async function (next) {
+userSchema.pre('save', async function () {
   const user = this as IUser;
 
   if (user.isModified('password')) {
     // Hash the password with a salt round of 10
     user.password = await bcrypt.hash(user.password, 10);
   }
-  next();
 });
 
 // Cascade delete owner when a user is deleted
-userSchema.pre('findOneAndDelete', async function (next) {
+userSchema.pre('findOneAndDelete', async function () {
   const user = await this.model.findOne(this.getQuery());
   if (user && user.ownerId) {
     await mongoose.model('Owner').findByIdAndDelete(user.ownerId);
   }
-  next();
 });
 // Export the User model
 export const User = mongoose.model<IUser, IUserModel>("User", userSchema);

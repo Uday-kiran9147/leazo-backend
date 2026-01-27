@@ -100,8 +100,9 @@ export const verifyPayment = async (req: Request, res: Response) => {
  */
 export const getOrder = async (req: Request, res: Response) => {
     try {
-        const { orderId } = req.params;
-        const order = await orderService.getOrder(orderId);
+        const { orderId: rawOrderId } = req.params;
+        const orderId = Array.isArray(rawOrderId) ? rawOrderId[0] : rawOrderId;
+        const order = await orderService.getOrder(orderId as string);
         
         res.status(200).json({ success: true, data: order });
     } catch (error: any) {

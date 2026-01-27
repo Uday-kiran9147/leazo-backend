@@ -1,6 +1,6 @@
 import mongoose from "mongoose";
 import ApiResponse from "./api_response";
-import { ZodError } from "zod";
+import { ZodError, ZodIssue } from "zod";
 import { logger } from "./logger";
 
 class ApiError extends Error {
@@ -28,12 +28,12 @@ export const handleError = (error: any, req: any, res: any): ApiResponse => {
     }
 
     if (error instanceof ZodError) {
-        const issues = error.errors.map(err => ({
+        const issues = error.issues.map((err: ZodIssue) => ({
             code: err.code,
             message: err.message,
             path: err.path
         }));
-        const errorMessage = issues.map(issue => `${issue.path.join('.')}: ${issue.message}`).join(', ');
+        const errorMessage = issues.map((issue: any) => `${issue.path.join('.')}: ${issue.message}`).join(', ');
         apiResponse = new ApiResponse(400, `Validation Error: ${errorMessage}`, { issues, name: "ZodError" });
         return apiResponse;
     }

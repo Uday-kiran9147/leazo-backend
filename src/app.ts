@@ -18,9 +18,13 @@ logger.info('Environment: '+nodeEnv+': loading variables from '+envFile);
 // logger.debug("Database connection pool initialized (Sample)", { poolSize: 10, timeout: "5s" });
 // logger.error("Sample Error: Failed to fetch external resource", new Error("Connection Timeout"));
 // logger.fatal("System Critical: Power supply failure (Sample Simulation)");
-dotenv.config({ path: path.resolve(process.cwd(), envFile) });
-// Also load general .env if it exists (as a fallback or for shared variables)
-dotenv.config();
+// Load environment variables based on NODE_ENV as an array (v17+ tip)
+dotenv.config({
+  path: [
+    path.resolve(process.cwd(), envFile),
+    path.resolve(process.cwd(), '.env')
+  ]
+});
 import express from 'express';
 import cors from 'cors';
 import axios from 'axios';

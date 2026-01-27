@@ -37,20 +37,18 @@ const buildingSchema = new mongoose.Schema<IBuilding>(
 );
 
 // Cascade delete portions when a building is deleted
-buildingSchema.pre('deleteMany', async function (next) {
+buildingSchema.pre('deleteMany', async function () {
     const building = await this.model.findOne(this.getQuery());
     if (building) {
         await mongoose.model('Portion').deleteMany({ buildingId: building._id });
     }
-    next();
 });
 
-buildingSchema.pre('findOneAndDelete', async function (next) {
+buildingSchema.pre('findOneAndDelete', async function () {
     const building = await this.model.findOne(this.getQuery());
     if (building) {
         await mongoose.model('Portion').deleteMany({ buildingId: building._id });
     }
-    next();
 });
 
 export const Building = mongoose.model<IBuilding, IBuildingModel>("Building", buildingSchema);

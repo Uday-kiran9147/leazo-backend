@@ -97,7 +97,7 @@ const ownerSchema = new mongoose.Schema<IOwner>(
 
 
 // Cascade delete buildings when an owner is deleted
-ownerSchema.pre('findOneAndDelete', async function(next) {
+ownerSchema.pre('findOneAndDelete', async function () {
     const owner = await this.model.findOne(this.getQuery());
     if (owner) {
         // Breaking cycle by using model name instead of direct import
@@ -108,7 +108,6 @@ ownerSchema.pre('findOneAndDelete', async function(next) {
             $set: { isOwner: false, ownerId: null }
         });
     }
-    next();
   });
 
 export const Owner = mongoose.model<IOwner,IOwnerModel>('Owner', ownerSchema);

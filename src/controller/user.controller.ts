@@ -238,9 +238,10 @@ export const getAllUsers = async (req: Request, res: Response) => {
 
   }
    export const markAsRead = async (req: Request, res: Response) => {
-    const id = req.params.id;
+     const rawId = req.params.id;
+     const id = Array.isArray(rawId) ? rawId[0] : rawId;
     try {
-      await Notification.markAsRead(id);
+      await Notification.markAsRead(id as string);
       const apiResponse = new ApiResponse(200, "Notification marked as read successfully", null);
       return res.status(apiResponse.status).json(apiResponse);
     } catch (error) {
