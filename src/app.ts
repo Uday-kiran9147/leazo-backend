@@ -6,15 +6,10 @@ import { logger } from './utils/logger';
 const nodeEnv = process.env.NODE_ENV || 'development';
 const envFile = nodeEnv === 'production' ? '.env.production' :
   nodeEnv === 'test' ? '.env.test' : '.env.development';
-// Environment logging
-if (nodeEnv === 'development') {
-  logger.info('Environment: Development');
-}
 
-// Production logging
-if (nodeEnv === 'production') {
-  logger.info('Environment: Production');
-}
+
+// Environment logging
+logger.info('Environment: '+nodeEnv+': loading variables from '+envFile);
 
 // Sample Enterprise Logs
 // logger.info("Initializing Enterprise Logging System...");
