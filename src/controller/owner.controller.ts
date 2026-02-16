@@ -8,20 +8,20 @@ import { addressSchema, contactSchema } from '../utils/validators';
 import { Notification } from '../models/notification.model';
 import { Owner } from '../models/owner.model';
 import { getPlanRules } from '../config/ownerConfig';
-import { MongooseOwnerRepository } from '../repositories/OwnerRepository';
-import { MongooseUserRepository } from '../repositories/UserRepository';
-import { MongooseBuildingRepository } from '../repositories/BuildingRepository';
-import { MongoosePortionRepository } from '../repositories/PortionRepository';
+import { MongooseOwnerRepository, CachedOwnerRepository } from '../repositories/OwnerRepository';
+import { MongooseUserRepository, CachedUserRepository } from '../repositories/UserRepository';
+import { MongooseBuildingRepository, CachedBuildingRepository } from '../repositories/BuildingRepository';
+import { MongoosePortionRepository, CachedPortionRepository } from '../repositories/PortionRepository';
 import { OwnerService } from '../services/OwnerService';
 import { BuildingService } from '../services/BuildingService';
 import { PortionService } from '../services/PortionService';
 import { Portion } from '../models/portion.model';
 
 // Service Initializations
-const userRepository = new MongooseUserRepository();
-const ownerRepository = new MongooseOwnerRepository();
-const buildingRepository = new MongooseBuildingRepository();
-const portionRepository = new MongoosePortionRepository();
+const userRepository = CachedUserRepository.getInstance(MongooseUserRepository.getInstance());
+const ownerRepository = CachedOwnerRepository.getInstance(MongooseOwnerRepository.getInstance());
+const buildingRepository = CachedBuildingRepository.getInstance(MongooseBuildingRepository.getInstance());
+const portionRepository = CachedPortionRepository.getInstance(MongoosePortionRepository.getInstance());
 
 export const ownerService = new OwnerService(ownerRepository, userRepository);
 export const buildingService = new BuildingService(buildingRepository);

@@ -1,22 +1,27 @@
-import { IPayment, PaymentEntity } from "./payments.models";
-import { Owner } from "../models/owner.model";
-import { Portion } from "../models/portion.model";
+import { IPayment } from "./payments.models";
 import { getPlanRules } from "../config/ownerConfig";
-import { RedisClientManager } from "../cache/RedisClientManager";
 import { sendPushNotification } from "../utils/push_notifications";
-import { User } from "../models/user.model";
 import { logger } from "../utils/logger";
 import { getTenantPlanRules } from "../config/tenantConfig";
 import { Notification } from "../models/notification.model";
+import { MongooseUserRepository, CachedUserRepository } from "../repositories/UserRepository";
+import { MongooseOwnerRepository, CachedOwnerRepository } from "../repositories/OwnerRepository";
+import { MongoosePortionRepository, CachedPortionRepository } from "../repositories/PortionRepository";
+import { Portion } from "../models/portion.model";
+import { RedisClientManager } from "../cache/RedisClientManager";
+
+const userRepository = CachedUserRepository.getInstance(MongooseUserRepository.getInstance());
+const ownerRepository = CachedOwnerRepository.getInstance(MongooseOwnerRepository.getInstance());
+const portionRepository = CachedPortionRepository.getInstance(MongoosePortionRepository.getInstance());
 
 export const activateTenantBusinessLogic = async (payment: IPayment | null, userId?: string, planIdStr?: string) => {
     logger.info("Activating tenant business logic");
 
     let user;
     if (payment) {
-        user = await User.findById(payment.userId);
+        user = await userRepository.findById(payment.userId.toString());
     } else if (userId) {
-        user = await User.findById(userId);
+        user = await userRepository.findById(userId);
     }
 
     if (!user) {
@@ -28,29 +33,23 @@ export const activateTenantBusinessLogic = async (payment: IPayment | null, user
     expiresAt.setDate(expiresAt.getDate() + 30);
 
     const planId = (payment ? payment.planId : planIdStr) as "tenant_free" | "tenant_smart_finder" | "tenant_premium";
-    const plan = getTenantPlanRules(planId);
 
     logger.debug("Updating tenant plan details", { user: user._id, plan: planId });
-    await User.updateOne(
-        { _id: user._id },
-        {
-            planId: planId,
-            planActivatedAt: now.toISOString(),
-            planExpiresAt: expiresAt.toISOString(),
-            autoRenew: true,
-            "usage.ownerContactsUsed": 0
-        }
-    );
-
+    await userRepository.update(user._id.toString(), {
+        planId: planId,
+        planActivatedAt: now.toISOString(),
+        planExpiresAt: expiresAt.toISOString(),
+        autoRenew: true,
+        "usage.ownerContactsUsed": 0
+    });
     // Invalidate user cache
     await RedisClientManager.delete(`user:${user._id}`);
     await RedisClientManager.delete("users:all");
-
     await sendTenantNotification(user._id.toString(), planId);
 };
 
 const sendTenantNotification = async (userId: string, planId: string) => {
-    const user = await User.findById(userId);
+    const user = await userRepository.findById(userId);
     if (user && user.deviceToken) {
         logger.debug("Sending tenant notification", { user: user._id });
         let title = "Tenant Plan Activated";
@@ -91,7 +90,7 @@ export const activateOwnerBusinessLogic = async (payment: IPayment | null, owner
     
     let owner;
     if (payment) {
-        owner = await Owner.findOne({ userId: payment.userId });
+        owner = await ownerRepository.findByUserId(payment.userId.toString());
     } else if (ownerId) {
         // userId is actually passed here in some cases, let's check
         // Looking at razorpay_webhooks.ts: await activateOwnerBusinessLogic(payment); -> passes payment
@@ -99,9 +98,9 @@ export const activateOwnerBusinessLogic = async (payment: IPayment | null, owner
         // The original code used Owner.findById(ownerId). If ownerId is a userId, it might fail if they are different.
         // Let's check Owner model or see how it's used.
         // Usually ownerId is the _id of Owner.
-        owner = await Owner.findById(ownerId);
+        owner = await ownerRepository.findById(ownerId);
         if(!owner) {
-             owner = await Owner.findOne({ userId: ownerId });
+            owner = await ownerRepository.findByUserId(ownerId);
         }
     }
 
@@ -154,8 +153,7 @@ export const activateOwnerBusinessLogic = async (payment: IPayment | null, owner
         await RedisClientManager.deletePattern(`building-portions:${buildingId}:*`);
     }
 
-    await Owner.updateOne(
-        { _id: owner._id },
+    await ownerRepository.update(owner._id.toString(),
         {
             planId: planId,
             planActivatedAt: now.toISOString(),
@@ -171,7 +169,7 @@ export const activateOwnerBusinessLogic = async (payment: IPayment | null, owner
     logger.success("Owner plan activated successfully", { owner: owner._id, plan: planId });
 
     try {
-        const user = await User.findById(owner.userId);
+        const user = await userRepository.findById(owner.userId.toString());
         if (user && user.deviceToken) {
             await sendPlanNotification(user._id.toString(), user.deviceToken, planId);
         }

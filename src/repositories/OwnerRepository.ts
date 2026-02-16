@@ -13,6 +13,17 @@ export interface IOwnerRepository {
 }
 
 export class MongooseOwnerRepository implements IOwnerRepository {
+    private static instance: MongooseOwnerRepository;
+
+    private constructor() { }
+
+    public static getInstance(): MongooseOwnerRepository {
+        if (!MongooseOwnerRepository.instance) {
+            MongooseOwnerRepository.instance = new MongooseOwnerRepository();
+        }
+        return MongooseOwnerRepository.instance;
+    }
+
     async create(data: any): Promise<any> {
         const owner = new Owner(data);
         return await owner.save();
@@ -59,5 +70,112 @@ export class MongooseOwnerRepository implements IOwnerRepository {
             { $set: { [`usage.${field}`]: count } },
             { new: true }
         ).lean();
+    }
+}
+
+import { RedisClientManager } from '../cache/RedisClientManager';
+
+export class CachedOwnerRepository implements IOwnerRepository {
+    private static instance: CachedOwnerRepository;
+
+    private constructor(private baseRepo: IOwnerRepository) { }
+
+    public static getInstance(baseRepo: IOwnerRepository): CachedOwnerRepository {
+        if (!CachedOwnerRepository.instance) {
+            CachedOwnerRepository.instance = new CachedOwnerRepository(baseRepo);
+        }
+        return CachedOwnerRepository.instance;
+    }
+
+    private async getFromCache<T>(key: string): Promise<T | null> {
+        const cached = await RedisClientManager.get(key);
+        return cached ? JSON.parse(cached) : null;
+    }
+
+    async create(data: any): Promise<any> {
+        return await this.baseRepo.create(data);
+    }
+
+    async findById(id: string): Promise<any> {
+        const cacheKey = `owner:id:${id}`;
+        const cached = await this.getFromCache<any>(cacheKey);
+        if (cached) return cached;
+
+        const owner = await this.baseRepo.findById(id);
+        if (owner) {
+            await RedisClientManager.set(cacheKey, owner);
+        }
+        return owner;
+    }
+
+    async findByUserId(userId: string): Promise<any> {
+        const cacheKey = `owner:user:${userId}`;
+        const cached = await this.getFromCache<any>(cacheKey);
+        if (cached) return cached;
+
+        const owner = await this.baseRepo.findByUserId(userId);
+        if (owner) {
+            await RedisClientManager.set(cacheKey, owner);
+        }
+        return owner;
+    }
+
+    async findAll(page: number = 1, limit: number = 10): Promise<any[]> {
+        const cacheKey = `owners:page:${page}:limit:${limit}`;
+        const cached = await this.getFromCache<any[]>(cacheKey);
+        if (cached) return cached;
+
+        const owners = await this.baseRepo.findAll(page, limit);
+        await RedisClientManager.set(cacheKey, owners);
+        return owners;
+    }
+
+    private async invalidateCache(id: string, userId?: string) {
+        await RedisClientManager.delete(`owner:id:${id}`);
+        if (userId) {
+            await RedisClientManager.delete(`owner:user:${userId}`);
+        }
+        // Also invalidate lists if necessary
+        await RedisClientManager.deletePattern('owners:page:*');
+    }
+
+    async update(id: string, data: any): Promise<any> {
+        const owner = await this.baseRepo.update(id, data);
+        if (owner) {
+            await this.invalidateCache(id, owner.userId);
+        }
+        return owner;
+    }
+
+    async delete(id: string): Promise<any> {
+        const owner = await this.baseRepo.delete(id);
+        if (owner) {
+            await this.invalidateCache(id, owner.userId);
+        }
+        return owner;
+    }
+
+    async updateUsage(id: string, usage: any): Promise<any> {
+        const owner = await this.baseRepo.updateUsage(id, usage);
+        if (owner) {
+            await this.invalidateCache(id, owner.userId);
+        }
+        return owner;
+    }
+
+    async updateActiveListings(id: string, increment: number): Promise<any> {
+        const owner = await this.baseRepo.updateActiveListings(id, increment);
+        if (owner) {
+            await this.invalidateCache(id, owner.userId);
+        }
+        return owner;
+    }
+
+    async updateUsageCount(id: string, field: string, count: number): Promise<any> {
+        const owner = await this.baseRepo.updateUsageCount(id, field, count);
+        if (owner) {
+            await this.invalidateCache(id, owner.userId);
+        }
+        return owner;
     }
 }

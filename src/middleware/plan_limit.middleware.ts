@@ -11,7 +11,7 @@ import { logger } from "../utils/logger";
  */
 export const checkPlanLimit = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const ownerId = req.body.user?.ownerId;
+        const ownerId = req.body?.user?.ownerId;
         const owner = ownerId ? await Owner.findById(ownerId) : null;
 
         if (!owner) {
@@ -43,7 +43,7 @@ async function isActivatingPortion(req: Request): Promise<boolean> {
     const { method, body, params, query } = req;
 
     // For POST, we check the body directly. For others, we check the 'data' wrapper.
-    const data = method === "POST" ? body : (body.data || {});
+    const data = method === "POST" ? (body || {}) : (body?.data || {});
     const wantsActive = data.isActive === true || (method === "POST" && data.isActive !== false);
 
     if (!wantsActive) return false;
@@ -61,6 +61,7 @@ async function isActivatingPortion(req: Request): Promise<boolean> {
  * Mutes the activation intent in the request body
  */
 function applyActivationMute(req: Request) {
+    if (!req.body) req.body = {};
     if (req.method === "POST") {
         req.body.isActive = false;
     } else if (req.body.data) {

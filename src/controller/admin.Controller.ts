@@ -8,10 +8,16 @@ import { Owner } from "../models/owner.model";
 import { RedisClientManager } from "../cache/RedisClientManager";
 import { Building } from "../models/building.model";
 import { Notification } from "../models/notification.model";
-import { MongoosePortionRepository } from "../repositories/PortionRepository";
-import { MongooseOwnerRepository } from "../repositories/OwnerRepository";
+import { MongoosePortionRepository, CachedPortionRepository } from "../repositories/PortionRepository";
+import { MongooseOwnerRepository, CachedOwnerRepository } from "../repositories/OwnerRepository";
+import { MongooseUserRepository, CachedUserRepository } from "../repositories/UserRepository";
 import { PortionService } from "../services/PortionService";
 import { logger } from "../utils/logger";
+
+const portionRepository = CachedPortionRepository.getInstance(MongoosePortionRepository.getInstance());
+const ownerRepository = CachedOwnerRepository.getInstance(MongooseOwnerRepository.getInstance());
+const userRepository = CachedUserRepository.getInstance(MongooseUserRepository.getInstance());
+const portionService = new PortionService(portionRepository, ownerRepository);
 
 /**
  * Helper function to fetch user device tokens with names
@@ -110,9 +116,7 @@ export const getUserRolesDistribution = async (req: Request, res: Response) => {
     }
 }
 
-const portionRepository = new MongoosePortionRepository();
-const ownerRepository = new MongooseOwnerRepository();
-const portionService = new PortionService(portionRepository, ownerRepository);
+// portionService and repositories are initialized at the top level
 
 interface DashboardStats {
     totalListings: number;
@@ -260,12 +264,11 @@ export const UpdateRole = async (req: Request, res: Response) => {
     // Find the user and update the role
     try {
         var apiResponse: ApiResponse;
-        const updatedUser = await User.findByIdAndUpdate(id, { role: role }, { new: true });
+        const updatedUser = await userRepository.update(id, { role: role });
         if (!updatedUser) {
             apiResponse = new ApiResponse(404, "User not found.");
             return res.status(apiResponse.status).json(apiResponse);
         }
-        await clearUsersCache();
         apiResponse = new ApiResponse(200, `Role updated to ${role}`, updatedUser);
         return res.status(apiResponse.status).json(apiResponse);
     } catch (error) {
@@ -335,7 +338,7 @@ export const UpdatePortionStatus = async (req: Request, res: Response) => {
             );
         }
 
-        await clearPortionsCache();
+        await clearPortionsCache()
         return res.status(200).json(apiResponse);
     } catch (error) {
         logger.error("Error updating portion status", error);

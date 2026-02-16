@@ -1,6 +1,5 @@
 import { IOwnerRepository } from "../repositories/OwnerRepository";
 import { IUserRepository } from "../repositories/UserRepository";
-import { RedisClientManager } from "../cache/RedisClientManager";
 
 export class OwnerService {
     constructor(
@@ -16,41 +15,20 @@ export class OwnerService {
             ownerId: owner._id
         });
 
-        await RedisClientManager.delete(`user:${userId}`);
-        await RedisClientManager.deletePattern("owners:all:*");
-
+        // Note: User caching might still be handled manually or we could create a CachedUserRepository
         return owner;
     }
 
     async getOwner(id: string) {
-        const cacheKey = `owner:${id}`;
-        const cached = await RedisClientManager.get(cacheKey);
-        if (cached) return JSON.parse(cached);
-
-        const owner = await this.ownerRepository.findById(id);
-        if (owner) {
-            await RedisClientManager.set(cacheKey, JSON.stringify(owner));
-        }
-        return owner;
+        return await this.ownerRepository.findById(id);
     }
 
     async listOwners(page: number = 1, limit: number = 10) {
-        const cacheKey = `owners:all:p${page}:l${limit}`;
-        const cached = await RedisClientManager.get(cacheKey);
-        if (cached) return JSON.parse(cached);
-
-        const owners = await this.ownerRepository.findAll(page, limit);
-        await RedisClientManager.set(cacheKey, JSON.stringify(owners));
-        return owners;
+        return await this.ownerRepository.findAll(page, limit);
     }
 
     async updateOwner(id: string, updateData: any) {
-        const owner = await this.ownerRepository.update(id, updateData);
-
-        await RedisClientManager.delete(`owner:${id}`);
-        await RedisClientManager.deletePattern("owners:all:*");
-
-        return owner;
+        return await this.ownerRepository.update(id, updateData);
     }
 
     async deleteOwner(id: string, userId: string) {
@@ -60,9 +38,6 @@ export class OwnerService {
             isOwner: false,
             ownerId: null
         });
-
-        await RedisClientManager.delete(`owner:${id}`);
-        await RedisClientManager.deletePattern("owners:all:*");
 
         return owner;
     }

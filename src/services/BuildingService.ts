@@ -1,36 +1,18 @@
 import { IBuildingRepository } from '../repositories/BuildingRepository';
-import { RedisClientManager } from '../cache/RedisClientManager';
 
 export class BuildingService {
     constructor(private buildingRepository: IBuildingRepository) {}
 
     async createBuilding(ownerId: string, buildingData: any) {
-        const building = await this.buildingRepository.create({ ...buildingData, ownerId });
-        await RedisClientManager.delete(`owner-buildings:${ownerId}`);
-        return building;
+        return await this.buildingRepository.create({ ...buildingData, ownerId });
     }
 
     async getBuilding(buildingId: string) {
-        const cacheKey = `building:${buildingId}`;
-        const cached = await RedisClientManager.get(cacheKey);
-        if (cached) return JSON.parse(cached);
-
-        const building = await this.buildingRepository.findById(buildingId);
-        if (building) {
-            await RedisClientManager.set(cacheKey, JSON.stringify(building));
-        }
-        return building;
+        return await this.buildingRepository.findById(buildingId);
     }
 
     async getBuildingsByOwner(ownerId: string, page: number = 1, limit: number = 10) {
-        const cacheKey = `owner-buildings:${ownerId}`;
-
-        const cached = await RedisClientManager.get(cacheKey);
-        if (cached) return JSON.parse(cached);
-
-        const buildings = await this.buildingRepository.findByOwnerId(ownerId, page, limit);
-        await RedisClientManager.set(cacheKey, JSON.stringify(buildings));
-        return buildings;
+        return await this.buildingRepository.findByOwnerId(ownerId, page, limit);
     }
 
     async updateBuilding(buildingId: string, updateData: any) {
@@ -38,7 +20,6 @@ export class BuildingService {
         if (!building) {
             throw new Error('Building not found');
         }
-        await RedisClientManager.delete(`owner-buildings:${building.ownerId}`);
         return building;
     }
 
@@ -47,7 +28,6 @@ export class BuildingService {
         if (!building) {
             throw new Error('Building not found');
         }
-        await RedisClientManager.delete(`owner-buildings:${building.ownerId}`);
         return building;
     }
 }

@@ -11,6 +11,16 @@ export interface IPlanRepository {
 }
 
 export class MongoosePlanRepository implements IPlanRepository {
+  private static instance: MongoosePlanRepository;
+
+  private constructor() { }
+
+  public static getInstance(): MongoosePlanRepository {
+    if (!MongoosePlanRepository.instance) {
+      MongoosePlanRepository.instance = new MongoosePlanRepository();
+    }
+    return MongoosePlanRepository.instance;
+  }
   async create(data: any): Promise<IPlan> {
     const plan = new Plan(data);
     return await plan.save();
@@ -38,5 +48,91 @@ export class MongoosePlanRepository implements IPlanRepository {
 
   async delete(id: string): Promise<IPlan | null> {
     return await Plan.findByIdAndDelete(id);
+  }
+}
+
+import { RedisClientManager } from '../cache/RedisClientManager';
+
+export class CachedPlanRepository implements IPlanRepository {
+  private static instance: CachedPlanRepository;
+
+  private constructor(private baseRepo: IPlanRepository) { }
+
+  public static getInstance(baseRepo: IPlanRepository): CachedPlanRepository {
+    if (!CachedPlanRepository.instance) {
+      CachedPlanRepository.instance = new CachedPlanRepository(baseRepo);
+    }
+    return CachedPlanRepository.instance;
+  }
+
+  private async getFromCache<T>(key: string): Promise<T | null> {
+    const cached = await RedisClientManager.get(key);
+    return cached ? JSON.parse(cached) : null;
+  }
+
+  async create(data: any): Promise<IPlan> {
+    const plan = await this.baseRepo.create(data);
+    await RedisClientManager.deletePattern('plans:*');
+    return plan;
+  }
+
+  async findById(id: string): Promise<IPlan | null> {
+    const cacheKey = `plans:id:${id}`;
+    const cached = await this.getFromCache<IPlan>(cacheKey);
+    if (cached) return cached;
+
+    const plan = await this.baseRepo.findById(id);
+    if (plan) {
+      await RedisClientManager.set(cacheKey, plan);
+    }
+    return plan;
+  }
+
+  async findByNameAndType(name: string, userType: UserType): Promise<IPlan | null> {
+    const cacheKey = `plans:name:${name}:type:${userType}`;
+    const cached = await this.getFromCache<IPlan>(cacheKey);
+    if (cached) return cached;
+
+    const plan = await this.baseRepo.findByNameAndType(name, userType);
+    if (plan) {
+      await RedisClientManager.set(cacheKey, plan);
+    }
+    return plan;
+  }
+
+  async findByType(userType: UserType): Promise<IPlan[]> {
+    const cacheKey = `plans:type:${userType}`;
+    const cached = await this.getFromCache<IPlan[]>(cacheKey);
+    if (cached) return cached;
+
+    const plans = await this.baseRepo.findByType(userType);
+    await RedisClientManager.set(cacheKey, plans);
+    return plans;
+  }
+
+  async findAll(): Promise<IPlan[]> {
+    const cacheKey = 'plans:all';
+    const cached = await this.getFromCache<IPlan[]>(cacheKey);
+    if (cached) return cached;
+
+    const plans = await this.baseRepo.findAll();
+    await RedisClientManager.set(cacheKey, plans);
+    return plans;
+  }
+
+  async update(id: string, data: any): Promise<IPlan | null> {
+    const plan = await this.baseRepo.update(id, data);
+    if (plan) {
+      await RedisClientManager.deletePattern('plans:*');
+    }
+    return plan;
+  }
+
+  async delete(id: string): Promise<IPlan | null> {
+    const plan = await this.baseRepo.delete(id);
+    if (plan) {
+      await RedisClientManager.deletePattern('plans:*');
+    }
+    return plan;
   }
 }

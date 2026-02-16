@@ -3,7 +3,7 @@ import { IPortionRepository } from '../../src/repositories/PortionRepository';
 import { IOwnerRepository } from '../../src/repositories/OwnerRepository';
 import { RedisClientManager } from '../../src/cache/RedisClientManager';
 
-jest.mock('../../src/cache/RedisClientManager');
+// jest.mock('../../src/cache/RedisClientManager'); // No longer needed in Service tests
 
 describe('PortionService', () => {
     let portionService: PortionService;
@@ -45,7 +45,8 @@ describe('PortionService', () => {
 
             expect(result.isBoosted).toBe(true);
             expect(mockOwnerRepository.update).toHaveBeenCalledWith('o123', expect.objectContaining({ $inc: { "usage.weeklyBoostsUsed": 1 } }));
-            expect(RedisClientManager.delete).toHaveBeenCalledWith(`portion:${portionId}`);
+            expect(mockOwnerRepository.update).toHaveBeenCalledWith('o123', expect.objectContaining({ $inc: { "usage.weeklyBoostsUsed": 1 } }));
+            // expect(RedisClientManager.delete).toHaveBeenCalledWith(`portion:${portionId}`); // Handled by repository
         });
 
         it('should fail if weekly boost limit reached', async () => {
@@ -98,9 +99,11 @@ describe('PortionService', () => {
 
         expect(result).toEqual(mockPortion);
         expect(mockOwnerRepository.updateActiveListings).toHaveBeenCalledWith('o123', 1);
-        expect(RedisClientManager.delete).toHaveBeenCalledWith('owner:o123');
-        expect(RedisClientManager.delete).toHaveBeenCalledWith(`portion:${mockPortion._id}`);
-        expect(RedisClientManager.deletePattern).toHaveBeenCalledWith(`building-portions:${portionData.buildingId}:*`);
+        expect(result).toEqual(mockPortion);
+        expect(mockOwnerRepository.updateActiveListings).toHaveBeenCalledWith('o123', 1);
+        // expect(RedisClientManager.delete).toHaveBeenCalledWith('owner:o123'); // Handled by repository
+        // expect(RedisClientManager.delete).toHaveBeenCalledWith(`portion:${mockPortion._id}`); // Handled by repository
+        // expect(RedisClientManager.deletePattern).toHaveBeenCalledWith(`building-portions:${portionData.buildingId}:*`); // Handled by repository
     });
 
     it('should create a portion and NOT increment activeListings if NOT active', async () => {
@@ -121,14 +124,14 @@ describe('PortionService', () => {
         const limit = 10;
         const mockPortions = [{ _id: 'p123', title: 'Studio A' }];
         
-        (RedisClientManager.get as jest.Mock).mockResolvedValue(null);
+        // (RedisClientManager.get as jest.Mock).mockResolvedValue(null); // Handled by repository
         mockPortionRepository.findByBuildingId.mockResolvedValue(mockPortions as any);
 
         const result = await portionService.getPortionsByBuilding(buildingId, page, limit);
 
         expect(result).toEqual(mockPortions);
         expect(mockPortionRepository.findByBuildingId).toHaveBeenCalledWith(buildingId, page, limit);
-        expect(RedisClientManager.set).toHaveBeenCalledWith(`building-portions:${buildingId}:p${page}:l${limit}`, JSON.stringify(mockPortions));
+        // expect(RedisClientManager.set).toHaveBeenCalledWith(`building-portions:${buildingId}:p${page}:l${limit}`, JSON.stringify(mockPortions)); // Handled by repository
     });
 
     it('should update a portion and increment activeListings if activated', async () => {
@@ -144,7 +147,7 @@ describe('PortionService', () => {
 
         expect(result).toEqual(mockPortion);
         expect(mockOwnerRepository.updateActiveListings).toHaveBeenCalledWith('o123', 1);
-        expect(RedisClientManager.delete).toHaveBeenCalledWith('owner:o123');
+        // expect(RedisClientManager.delete).toHaveBeenCalledWith('owner:o123'); // Handled by repository
     });
 
     it('should update a portion and decrement activeListings if deactivated', async () => {
@@ -188,7 +191,7 @@ describe('PortionService', () => {
 
         expect(result.isDeleted).toBe(true);
         expect(mockOwnerRepository.updateActiveListings).toHaveBeenCalledWith('o123', -1);
-        expect(RedisClientManager.delete).toHaveBeenCalledWith('owner:o123');
+        // expect(RedisClientManager.delete).toHaveBeenCalledWith('owner:o123'); // Handled by repository
     });
 
     it('should reconcile usage count', async () => {
@@ -199,6 +202,6 @@ describe('PortionService', () => {
 
         expect(result).toBe(5);
         expect(mockOwnerRepository.updateUsageCount).toHaveBeenCalledWith(ownerId, 'activeListings', 5);
-        expect(RedisClientManager.delete).toHaveBeenCalledWith('owner:o123');
+        // expect(RedisClientManager.delete).toHaveBeenCalledWith('owner:o123'); // Handled by repository
     });
 });

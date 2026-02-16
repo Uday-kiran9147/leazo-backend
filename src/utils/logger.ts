@@ -33,7 +33,7 @@ class Logger {
     }
 
     private getTimestamp(): string {
-        return new Date().toISOString();
+        return new Date().toLocaleString();
     }
 
     private format(level: LogLevel, message: string, ...args: any[]): string {
@@ -47,7 +47,11 @@ class Logger {
                 if (arg instanceof Error) {
                     return chalk.red(`\nStack: ${arg.stack}`);
                 }
-                if (typeof arg === 'object') {
+                if (typeof arg === 'object' && arg !== null) {
+                    // Check if it's a wrapped error: { error: Error }
+                    if ('error' in arg && arg.error instanceof Error) {
+                        return chalk.red(`\nWrapped Error Stack: ${arg.error.stack}`);
+                    }
                     try {
                         return `\n${chalk.cyan(JSON.stringify(arg, null, 2))}`;
                     } catch (e) {

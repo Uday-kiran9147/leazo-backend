@@ -1,11 +1,11 @@
 import { Request, Response } from "express";
 import ApiResponse from "../utils/api_response";
 import { handleError } from "../utils/api_error";
-import { MongoosePlanRepository } from "../repositories/PlanRepository";
+import { MongoosePlanRepository, CachedPlanRepository } from "../repositories/PlanRepository";
 import { PlanService } from "../services/PlanService";
 import { UserType } from "../models/plan.model";
 
-const planRepository = new MongoosePlanRepository();
+const planRepository = CachedPlanRepository.getInstance(MongoosePlanRepository.getInstance());
 const planService = new PlanService(planRepository);
 
 export const getTenantPlans = async (req: Request, res: Response) => {

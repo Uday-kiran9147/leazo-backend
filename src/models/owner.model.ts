@@ -79,7 +79,7 @@ const ownerSchema = new mongoose.Schema<IOwner>(
 
     visibility: {
       type: String,
-      enum: ["basic", "enhanced", "high", "top"],
+      enum: ["basic", "enhanced", "high", "top","boosted"],
       default: "basic"
     },
 
