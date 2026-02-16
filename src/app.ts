@@ -22,7 +22,7 @@ logger.info('Environment: '+nodeEnv+': loading variables from '+envFile);
 dotenv.config({
   path: [
     path.resolve(process.cwd(), envFile),
-    path.resolve(process.cwd(), '.env')
+    // path.resolve(process.cwd(), '.env')
   ]
 });
 import express from 'express';
@@ -67,9 +67,21 @@ const PORT = process.env.PORT || 3000;
 
 // Middleware
 app.use(cors());
+// Request URL logging middleware
+app.use((req: Request, res: Response, next: any) => {
+  logger.info(`${req.method} ${req.originalUrl}`,
+    // {
+    //   ip: req.ip,
+    //   userAgent: req.get('user-agent')
+    // }
+);
+  next();
+});
 // In app.ts or webhook route, use raw body parsing for webhooks:
 app.use('/v1/api/webhooks/razorpay', express.raw({ type: 'application/json' }));
 app.use('/v1/api/webhooks', webhookRouter);
+
+app.use(express.urlencoded({ extended: true })); 
 app.use(express.json());
 
 // Development error handling
