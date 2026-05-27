@@ -57,7 +57,11 @@ export class CachedUserRepository implements IUserRepository {
 
     private async getFromCache<T>(key: string): Promise<T | null> {
         const cached = await RedisClientManager.get(key);
-        return cached ? JSON.parse(cached) : null;
+        if (!cached) return null;
+        if (typeof cached === 'string') {
+            return JSON.parse(cached);
+        }
+        return cached as T;
     }
 
     async create(data: any): Promise<any> {
