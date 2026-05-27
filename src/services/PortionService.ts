@@ -18,6 +18,11 @@ export class PortionService {
         const owner = await this.ownerRepository.findByUserId(userId);
         if (!owner) throw new Error("Owner profile not found");
 
+        // 0. Plan Expiry Check — reject boosts on expired plans
+        if (owner.planExpiresAt && new Date(owner.planExpiresAt) < new Date()) {
+            throw new Error("Your plan has expired. Please renew to use boosts.");
+        }
+
         // 1. Weekly Reset Logic
         const now = new Date();
         const lastReset = owner.lastBoostResetAt || owner.planActivatedAt || owner.createdAt;

@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { getAllUsers, createUser, getUser, updateUser, getAllPortions, deleteUser, getNotifications, markAsRead, submitFeedback, getFeedbacks, searchPortions, revealPortionContact } from '../controller/user.controller';
 import { auth } from '../middleware/auth.middleware';
+import { checkTenantPlanExpiry } from '../middleware/plan_expiry.middleware';
 import { User } from '../models/user.model';
 
 const userRouter = Router();
@@ -16,7 +17,7 @@ userRouter.patch('/notifications/mark-as-read/:id',auth,markAsRead) //DONE
 userRouter.post('/submit-feedback',submitFeedback) // DONE
 userRouter.get('/feedbacks',getFeedbacks)
 userRouter.get('/search',searchPortions)
-userRouter.post('/reveal-contact', auth, revealPortionContact);
+userRouter.post('/reveal-contact', auth, checkTenantPlanExpiry, revealPortionContact);
 
 // Track user activity
 userRouter.post('/activity', async (req:Request, res:Response) => {

@@ -18,7 +18,18 @@ export const checkPlanLimit = async (req: Request, res: Response, next: NextFunc
             return res.status(403).json(new ApiResponse(403, "Owner profile required", null));
         }
 
-        const planRules = getPlanRules(owner.planId);
+        // If paid plan has expired, enforce free-plan limits instead
+        let effectivePlanId = owner.planId;
+        if (
+            owner.planId !== 'owner_free' &&
+            owner.planExpiresAt &&
+            new Date(owner.planExpiresAt) < new Date()
+        ) {
+            effectivePlanId = 'owner_free';
+            logger.warn(`[PlanLimit] Owner plan expired, enforcing free-plan limits`, { owner: ownerId });
+        }
+
+        const planRules = getPlanRules(effectivePlanId);
         if (planRules.activeListings === -1) return next();
 
         // Only check if they are already at or over the limit

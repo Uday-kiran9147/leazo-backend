@@ -2,6 +2,7 @@ import { Router } from "express";
 import { createOwner, deleteOwner, getOwnerById, deletePortion, getOwners, updateOwner, deleteBuilding, createBuilding, updateBuilding, getOwnerBuildings, createPortion, getPortionsByBuildingId, updatePortion, boostPortion, toggleIsActiveAndUpdateOwnerUsage } from "../controller/owner.controller";
 import { auth } from "../middleware/auth.middleware";
 import { checkPlanLimit } from "../middleware/plan_limit.middleware";
+import { checkOwnerPlanExpiry } from "../middleware/plan_expiry.middleware";
 
 const ownerRouter = Router()
 
@@ -18,11 +19,11 @@ ownerRouter.delete('/delete-building', auth, deleteBuilding) // DONE
 ownerRouter.get('/buildings/me', auth, getOwnerBuildings) // DONE
 
 // Portions
-ownerRouter.post('/buildings/create-portion', auth, checkPlanLimit, createPortion) // DONE
-ownerRouter.patch('/buildings/update-portion', auth, checkPlanLimit, updatePortion) // DONE
+ownerRouter.post('/buildings/create-portion', auth, checkOwnerPlanExpiry, checkPlanLimit, createPortion) // DONE
+ownerRouter.patch('/buildings/update-portion', auth, checkOwnerPlanExpiry, checkPlanLimit, updatePortion) // DONE
 ownerRouter.delete('/buildings/delete-portion', auth, deletePortion) 
-ownerRouter.post('/buildings/boost-portion', auth, boostPortion)
-ownerRouter.patch('/buildings/toggle-portion-status', auth, toggleIsActiveAndUpdateOwnerUsage)
+ownerRouter.post('/buildings/boost-portion', auth, checkOwnerPlanExpiry, boostPortion)
+ownerRouter.patch('/buildings/toggle-portion-status', auth, checkOwnerPlanExpiry, toggleIsActiveAndUpdateOwnerUsage)
 ownerRouter.get('/buildings/get-portions', auth, getPortionsByBuildingId) // DONE
 
 export default ownerRouter;

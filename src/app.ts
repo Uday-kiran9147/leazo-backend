@@ -42,6 +42,7 @@ import plansRouter from './routes/plansRoute';
 import { paymentsRouter } from './routes/paymentsRoutes';
 import { webhookRouter } from './routes/webhookRouter';
 import { PaymentEntity } from './payments/payments.models';
+import { startPlanExpiryCron } from './cron/planExpiryCron';
 
 
 
@@ -163,6 +164,7 @@ async function startCyclicFunc() {
 if (process.env.NODE_ENV !== 'test') {
   logger.info("Starting background services...");
   startCyclicFunc();
+  startPlanExpiryCron();
 }
 
 // Export app for testing
