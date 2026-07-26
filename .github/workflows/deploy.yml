@@ -9,22 +9,17 @@ jobs:
   build:
     name: Build Application
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: leazo-backend
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-        with:
-          sparse-checkout: leazo-backend
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: "24.x"
           cache: "npm"
-          cache-dependency-path: leazo-backend/package-lock.json
+          cache-dependency-path: package-lock.json
 
       - name: Create Service Account File from Secret
         run: echo "${{ secrets.SERVICE_ACCOUNTS_JSON }}" | base64 --decode > service_account.json
@@ -46,7 +41,7 @@ jobs:
           cp ecosystem.config.cjs deploy/
           cp service_account.json deploy/
           cp .env.production deploy/
-          tar -czf ../deploy.tar.gz -C deploy .
+          tar -czf deploy.tar.gz -C deploy .
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
