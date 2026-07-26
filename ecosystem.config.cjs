@@ -2,7 +2,7 @@ module.exports = {
   apps: [
     {
       name: 'leazo-backend',
-      script: './dist/index.js',
+      script: './dist/src/app.js',
       instances: 'max', // Utilizes all available CPU cores
       exec_mode: 'cluster',
       env_production: {
