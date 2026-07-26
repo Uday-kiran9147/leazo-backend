@@ -3,8 +3,6 @@ name: Deploy Backend to EC2
 on:
   push:
     branches: [master]
-  workflow_dispatch:
-
 jobs:
   build:
     name: Build Application
