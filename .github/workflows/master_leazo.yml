@@ -1,88 +1,107 @@
-# Docs for the Azure Web Apps Deploy action: https://github.com/Azure/webapps-deploy
-# More GitHub Actions for Azure: https://github.com/Azure/actions
-
-name: Build and deploy Node.js app to Azure Web App - leazo
+name: Deploy Backend to EC2
 
 on:
   push:
-    branches:
-      - master
+    branches: [master]
   workflow_dispatch:
 
 jobs:
   build:
+    name: Build Application
     runs-on: ubuntu-latest
-    permissions:
-      contents: read #This is required for actions/checkout
+    defaults:
+      run:
+        working-directory: leazo-backend
 
     steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up Node.js version
-        uses: actions/setup-node@v3
+      - name: Checkout code
+        uses: actions/checkout@v4
         with:
-          node-version: '22.x'
-      
-      # Create .env file from secrets
-      - name: Decode .env from base64
-        run: |
-          echo "$ENV_FILE_B64" | base64 --decode > .env
-        env:
-          ENV_FILE_B64: ${{ secrets.ENV_FILE_B64 }}
-      
-      # Create .service_account file from secrets
-      - name: Decode service_account.json from base64
-        run: |
-          echo "$SERVICE_ACCOUNTS_JSON" | base64 --decode > service_account.json
-        env:
-          SERVICE_ACCOUNTS_JSON: ${{ secrets.SERVICE_ACCOUNTS_JSON }}
+          sparse-checkout: leazo-backend
 
-      - name: npm install,
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20.x"
+          cache: "npm"
+          cache-dependency-path: leazo-backend/package-lock.json
+
+      - name: Create Service Account File from Secret
+        run: echo "${{ secrets.SERVICE_ACCOUNTS_JSON }}" | base64 --decode > service_account.json
+
+      - name: Create .env.production file from Secret
+        run: echo "${{ secrets.ENV_FILE_B64 }}" | base64 --decode > .env.production
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build TypeScript
+        run: npm run build
+
+      - name: Create deployment package
         run: |
-          npm install
-          npm run build
-      # 
-      - name: List files before zipping
-        run: ls -al
+          mkdir -p deploy
+          cp -r dist deploy/
+          cp package*.json deploy/
+          cp ecosystem.config.cjs deploy/
+          cp service_account.json deploy/
+          cp .env.production deploy/
+          tar -czf ../deploy.tar.gz -C deploy .
 
-      - name: Zip artifact for deployment
-        run: zip release.zip ./* -r
-
-      - name: Upload artifact for deployment job
+      - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
-          name: node-app
-          path: release.zip
+          name: deployment-package
+          path: deploy.tar.gz
+          retention-days: 1
 
   deploy:
-    runs-on: ubuntu-latest
+    name: Deploy to EC2
     needs: build
-    
-    permissions:
-      id-token: write #This is required for requesting the JWT
-      contents: read #This is required for actions/checkout
+    runs-on: ubuntu-latest
 
     steps:
-      - name: Download artifact from build job
+      - name: Download build artifact
         uses: actions/download-artifact@v4
         with:
-          name: node-app
+          name: deployment-package
 
-      - name: Unzip artifact for deployment
-        run: unzip release.zip
-      
-      - name: Login to Azure
-        uses: azure/login@v2
-        with:
-          client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_5E90A85D84DC45F384DF8D5A88D494A2 }}
-          tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_BA667312A10447F5A41ECAB74F31CDDA }}
-          subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_B4F696A31A4D4AD29D63A3473173E110 }}
+      - name: Deploy to EC2 via SSH
+        env:
+          EC2_HOST: ${{ secrets.EC2_HOST }}
+          EC2_USERNAME: ${{ secrets.EC2_USERNAME }}
+          SSH_PRIVATE_KEY: ${{ secrets.EC2_SSH_KEY }}
+        run: |
+          echo "$SSH_PRIVATE_KEY" > locaura.pem
+          chmod 600 locaura.pem
 
-      - name: 'Deploy to Azure Web App'
-        id: deploy-to-webapp
-        uses: azure/webapps-deploy@v3
-        with:
-          app-name: 'leazo'
-          slot-name: 'Production'
-          package: .
-          
+          scp -i locaura.pem -o StrictHostKeyChecking=no -o ServerAliveInterval=60 -o ServerAliveCountMax=10 deploy.tar.gz ${EC2_USERNAME}@${EC2_HOST}:/tmp/
+
+          ssh -i locaura.pem -o StrictHostKeyChecking=no -o ServerAliveInterval=60 -o ServerAliveCountMax=10 ${EC2_USERNAME}@${EC2_HOST} << 'EOF'
+            APP_DIR="/home/ubuntu/locaura-backend"
+            mkdir -p $APP_DIR
+            cd $APP_DIR
+
+            if [ -d "dist" ]; then
+              timestamp=$(date +%Y%m%d_%H%M%S)
+              mkdir -p backups
+              tar -czf backups/backup_${timestamp}.tar.gz dist package.json ecosystem.config.cjs .env.production 2>/dev/null || true
+              rm -f .env
+              ls -t backups/backup_*.tar.gz | tail -n +6 | xargs -r rm
+            fi
+            
+            tar --overwrite -xzf /tmp/deploy.tar.gz -C $APP_DIR
+            rm /tmp/deploy.tar.gz
+
+            npm ci --omit=dev
+            
+            mkdir -p logs
+            
+            if pm2 describe locaura-backend > /dev/null 2>&1; then
+              pm2 reload ecosystem.config.cjs --env production --update-env
+            else
+              pm2 start ecosystem.config.cjs --env production
+            fi
+            pm2 save
+          EOF
+          rm locaura.pem
