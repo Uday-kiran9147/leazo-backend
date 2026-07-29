@@ -84,7 +84,7 @@ app.use('/v1/api/webhooks', webhookRouter);
 
 app.use(express.urlencoded({ extended: true })); 
 app.use(express.json());
-
+ 
 // Development error handling
 if (process.env.NODE_ENV === 'development') {
   app.use((err: any, req: any, res: any, next: any) => {
