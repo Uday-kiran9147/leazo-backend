@@ -70,6 +70,11 @@ export const handleError = (error: any, req: any, res: any): ApiResponse => {
         return apiResponse;
     }
 
+    if (error.name === 'MulterError') {
+        apiResponse = new ApiResponse(400, `File upload error: ${error.message}`, error);
+        return apiResponse;
+    }
+
     if (error.code && error.code === 11000) {
         const field = Object.keys(error.keyValue)[0];
         apiResponse = new ApiResponse(409, `Duplicate field value: ${field}. Please use another value.`, error);

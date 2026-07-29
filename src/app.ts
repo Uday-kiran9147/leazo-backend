@@ -163,7 +163,7 @@ async function startCyclicFunc() {
 
 if (process.env.NODE_ENV !== 'test') {
   logger.info("Starting background services...");
-  startCyclicFunc();
+  // startCyclicFunc();
   startPlanExpiryCron();
 }
 

@@ -1,6 +1,8 @@
 process.env.TZ = 'Asia/Kolkata';
 process.env.RAZORPAY_KEY_ID = 'rzp_test_dummy';
 process.env.RAZORPAY_KEY_SECRET = 'dummy_secret';
+import path from 'path';
+process.env.MONGOMS_DOWNLOAD_DIR = path.join(__dirname, '../.mongo-bin');
 
 import { MongoMemoryServer } from 'mongodb-memory-server';
 import mongoose from 'mongoose';
@@ -77,15 +79,15 @@ jest.mock('../src/utils/mail', () => ({
   default: jest.fn().mockResolvedValue(true),
 }));
 
-// Set global timeout for CI
-jest.setTimeout(30000);
+// Set global timeout for CI / setup download
+jest.setTimeout(120000);
 
 beforeAll(async () => {
   console.log('Test Setup: Starting MongoMemoryServer...');
 
   try {
     // Start MongoDB Memory Server
-    mongo = await MongoMemoryServer.create();
+    mongo = await MongoMemoryServer.create({ binary: { checkMD5: false } });
     const uri = mongo.getUri();
     console.log(`Test Setup: MongoDB Memory Server started at ${uri}`);
     await mongoose.connect(uri);
