@@ -9,6 +9,10 @@ export class CloudinaryStorageStrategy implements StorageStrategy {
     const apiSecret = process.env.CLOUDINARY_API_SECRET;
 
     if (!cloudName || !apiKey || !apiSecret) {
+      if (process.env.NODE_ENV === 'test') {
+        logger.warn('Cloudinary credentials missing in test environment', 'CloudinaryStorage');
+        return;
+      }
       throw new Error(
         'Missing Cloudinary credentials. Set CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, and CLOUDINARY_API_SECRET in .env'
       );
