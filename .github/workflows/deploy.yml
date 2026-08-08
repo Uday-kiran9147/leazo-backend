@@ -86,7 +86,7 @@ jobs:
           tar --overwrite -xzf /tmp/deploy.tar.gz -C "$APP_DIR"
           rm /tmp/deploy.tar.gz
 
-          npm ci --omit=dev
+          npm ci
 
           mkdir -p logs
 

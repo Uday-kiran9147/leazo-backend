@@ -2,9 +2,9 @@ module.exports = {
   apps: [
     {
       name: 'leazo-backend',
-      script: './dist/src/app.js',
-      instances: 'max', // Utilizes all available CPU cores
-      exec_mode: 'cluster',
+      script: './dist/src/main.js',
+      instances: 1,
+      exec_mode: 'fork',
       env_production: {
         NODE_ENV: 'production',
         PORT: 3000
@@ -15,7 +15,7 @@ module.exports = {
       merge_logs: true,
       autorestart: true,
       watch: false,
-      max_memory_restart: '800M' // Restarts if memory exceeds this limit (good for low-RAM instances)
+      max_memory_restart: '800M'
     }
   ]
 };
