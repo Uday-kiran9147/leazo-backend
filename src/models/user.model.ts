@@ -151,7 +151,7 @@ userSchema.statics.findByCredentials = async function (
 userSchema.pre('save', async function () {
   const user = this as IUser;
 
-  if (user.isModified('password')) {
+  if (user.isModified('password') && !user.password.startsWith('$2b$') && !user.password.startsWith('$2a$')) {
     // Hash the password with a salt round of 10
     user.password = await bcrypt.hash(user.password, 10);
   }

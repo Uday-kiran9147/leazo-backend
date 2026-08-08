@@ -25,7 +25,7 @@ export class JwtAuthGuard implements CanActivate {
     try {
       const decoded = jwt.verify(token, secretKey) as jwt.JwtPayload;
       logger.debug('Decoded JWT Token', { decoded });
-      const userId = decoded._id;
+      const userId = decoded.sub || decoded.id || decoded._id;
 
       if (!userId) {
         throw new BadRequestException('User ID not found in token');

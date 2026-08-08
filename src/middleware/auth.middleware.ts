@@ -22,8 +22,7 @@ export const auth = async (req: Request, res: Response, next: NextFunction) => {
         }
         const decoded = jwt.verify(token, secretKey) as jwt.JwtPayload;
         logger.debug("Decoded JWT Token", { decoded });
-        // Safely extract user ID
-        const userId = decoded._id;
+        const userId = decoded.sub || decoded.id || decoded._id;
         if (!userId) {
             // code checked
             return res.status(400).send({ error: "User ID not found in token" });

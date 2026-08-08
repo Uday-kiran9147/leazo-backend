@@ -1,33 +1,43 @@
 import { IsEmail, IsNotEmpty, IsString, MinLength, IsOptional } from 'class-validator';
 
+/**
+ * Data Transfer Object for User Registration (Sign-Up).
+ */
 export class SignUpDto {
-  @IsEmail()
+  @IsEmail({}, { message: 'Invalid email address format' })
   email!: string;
 
   @IsString()
-  @MinLength(6)
+  @MinLength(6, { message: 'Password must be at least 6 characters long' })
   password!: string;
 
   @IsString()
-  @IsNotEmpty()
+  @IsNotEmpty({ message: 'First name is required' })
   firstName!: string;
 
   @IsString()
-  @IsNotEmpty()
+  @IsNotEmpty({ message: 'Last name is required' })
   lastName!: string;
 
   @IsString()
-  @IsNotEmpty()
+  @IsNotEmpty({ message: 'Phone number is required' })
   phoneNumber!: string;
 }
 
+/**
+ * Data Transfer Object for User Authentication (Login).
+ */
 export class LoginDto {
-  @IsEmail()
+  @IsEmail({}, { message: 'Invalid email address format' })
   email!: string;
 
   @IsString()
-  @IsNotEmpty()
+  @IsNotEmpty({ message: 'Password is required' })
   password!: string;
+
+  @IsOptional()
+  @IsString()
+  phoneNumber?: string;
 
   @IsOptional()
   @IsString()
@@ -42,20 +52,35 @@ export class LoginDto {
   ipAddress?: string;
 }
 
+/**
+ * Data Transfer Object for Forgot Password OTP Request.
+ */
 export class ForgotPasswordDto {
-  @IsEmail()
+  @IsEmail({}, { message: 'Invalid email address format' })
   email!: string;
 }
 
+/**
+ * Data Transfer Object for Reset Password Submission.
+ */
 export class ResetPasswordDto {
-  @IsEmail()
+  @IsEmail({}, { message: 'Invalid email address format' })
   email!: string;
 
   @IsString()
-  @IsNotEmpty()
+  @IsNotEmpty({ message: 'OTP token is required' })
   otp!: string;
 
   @IsString()
-  @MinLength(6)
+  @MinLength(6, { message: 'New password must be at least 6 characters long' })
   newPassword!: string;
+}
+
+/**
+ * Data Transfer Object for Refresh Token Request.
+ */
+export class RefreshTokenDto {
+  @IsString()
+  @IsNotEmpty({ message: 'Refresh token is required' })
+  refreshToken!: string;
 }
