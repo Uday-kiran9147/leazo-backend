@@ -106,12 +106,12 @@ jobs:
           mkdir -p logs
 
           if command -v pm2 >/dev/null 2>&1; then
-            pm2 startOrReload ecosystem.config.cjs --env production --update-env || pm2 start ecosystem.config.cjs --env production
+            NODE_ENV=production pm2 startOrReload ecosystem.config.cjs --env production --update-env || NODE_ENV=production pm2 start ecosystem.config.cjs --env production
             pm2 save
           else
             echo "PM2 is not installed globally on server. Installing or starting node directly..."
             npm install -g pm2 2>/dev/null || true
-            pm2 startOrReload ecosystem.config.cjs --env production --update-env || pm2 start ecosystem.config.cjs --env production
+            NODE_ENV=production pm2 startOrReload ecosystem.config.cjs --env production --update-env || NODE_ENV=production pm2 start ecosystem.config.cjs --env production
             pm2 save
           fi
           EOF
