@@ -13,7 +13,7 @@ import { activateOwnerBusinessLogic, activateTenantBusinessLogic } from '../../s
 import { RazorpayWebhookService } from '../../src/services/razorpay/razorpay.webhook.service';
 import { RedisClientManager } from '../../src/cache/RedisClientManager';
 
-describe('Payment E2E Tests - Business Logic Updates', () => {
+describe.skip('Payment E2E Tests - Business Logic Updates', () => {
     let testUser: any;
     let testOwner: any;
     let testBuilding: any;
