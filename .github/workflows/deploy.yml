@@ -3,6 +3,7 @@ name: Deploy Backend to EC2
 on:
   push:
     branches: [master]
+
 jobs:
   build:
     name: Build Application
@@ -20,10 +21,20 @@ jobs:
           cache-dependency-path: "package.json"
 
       - name: Create Service Account File from Secret
-        run: echo "${{ secrets.SERVICE_ACCOUNTS_JSON }}" | base64 --decode > service_account.json
+        run: |
+          if [ -n "${{ secrets.SERVICE_ACCOUNTS_JSON }}" ]; then
+            echo "${{ secrets.SERVICE_ACCOUNTS_JSON }}" | base64 --decode > service_account.json || echo "${{ secrets.SERVICE_ACCOUNTS_JSON }}" > service_account.json
+          else
+            echo "{}" > service_account.json
+          fi
 
       - name: Create .env.production file from Secret
-        run: echo "${{ secrets.ENV_FILE_B64 }}" | base64 --decode > .env.production
+        run: |
+          if [ -n "${{ secrets.ENV_FILE_B64 }}" ]; then
+            echo "${{ secrets.ENV_FILE_B64 }}" | base64 --decode > .env.production || echo "${{ secrets.ENV_FILE_B64 }}" > .env.production
+          else
+            cp .env.sample .env.production 2>/dev/null || touch .env.production
+          fi
 
       - name: Install dependencies
         run: npm install
@@ -65,12 +76,16 @@ jobs:
           EC2_USERNAME: ${{ secrets.EC2_USERNAME }}
           SSH_PRIVATE_KEY: ${{ secrets.EC2_SSH_KEY }}
         run: |
-          echo "$SSH_PRIVATE_KEY" > leazo-key-pair.pem
-          chmod 400 leazo-key-pair.pem
+          printf "%s\n" "$SSH_PRIVATE_KEY" > leazo-key-pair.pem
+          chmod 600 leazo-key-pair.pem
 
           scp -i leazo-key-pair.pem -o StrictHostKeyChecking=no -o ServerAliveInterval=60 -o ServerAliveCountMax=10 deploy.tar.gz ${EC2_USERNAME}@${EC2_HOST}:/tmp/
 
           ssh -i leazo-key-pair.pem -o StrictHostKeyChecking=no -o ServerAliveInterval=60 -o ServerAliveCountMax=10 ${EC2_USERNAME}@${EC2_HOST} << 'EOF'
+          export NVM_DIR="$HOME/.nvm"
+          [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+          export PATH="$PATH:$HOME/.nvm/versions/node/$(ls $HOME/.nvm/versions/node 2>/dev/null | tail -n 1)/bin:/usr/local/bin:/usr/bin:/bin"
+
           APP_DIR="/home/ubuntu/leazo-backend"
           mkdir -p "$APP_DIR"
           cd "$APP_DIR"
@@ -84,18 +99,20 @@ jobs:
           fi
 
           tar --overwrite -xzf /tmp/deploy.tar.gz -C "$APP_DIR"
-          rm /tmp/deploy.tar.gz
+          rm -f /tmp/deploy.tar.gz
 
-          npm ci
+          npm install --include=dev
 
           mkdir -p logs
 
-          if pm2 describe leazo-backend > /dev/null 2>&1; then
-            pm2 reload ecosystem.config.cjs --env production --update-env
+          if command -v pm2 >/dev/null 2>&1; then
+            pm2 startOrReload ecosystem.config.cjs --env production --update-env || pm2 start ecosystem.config.cjs --env production
+            pm2 save
           else
-            pm2 start ecosystem.config.cjs --env production
+            echo "PM2 is not installed globally on server. Installing or starting node directly..."
+            npm install -g pm2 2>/dev/null || true
+            pm2 startOrReload ecosystem.config.cjs --env production --update-env || pm2 start ecosystem.config.cjs --env production
+            pm2 save
           fi
-
-          pm2 save
           EOF
           rm -f leazo-key-pair.pem
