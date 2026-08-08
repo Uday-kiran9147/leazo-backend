@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "main": "dist/src/main.js",
   "scripts": {
-    "start": "cross-env NODE_ENV=production node dist/src/main.js",
+    "start": "node dist/src/main.js",
     "start:dev": "cross-env NODE_ENV=development node dist/src/main.js",
     "start:prod": "cross-env NODE_ENV=production node dist/src/main.js",
     "dev": "cross-env NODE_ENV=development nodemon --exec ts-node src/main.ts",

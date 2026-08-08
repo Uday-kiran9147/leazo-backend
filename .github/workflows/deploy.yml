@@ -101,7 +101,7 @@ jobs:
           tar --overwrite -xzf /tmp/deploy.tar.gz -C "$APP_DIR"
           rm -f /tmp/deploy.tar.gz
 
-          npm install --include=dev
+          npm install --omit=dev
 
           mkdir -p logs
 

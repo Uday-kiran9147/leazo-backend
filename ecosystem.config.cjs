@@ -2,7 +2,8 @@ module.exports = {
   apps: [
     {
       name: 'leazo-backend',
-      script: './dist/src/main.js',
+      script: 'npm',
+      args: 'run start:prod',
       instances: 1,
       exec_mode: 'fork',
       env_production: {
