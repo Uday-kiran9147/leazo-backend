@@ -4,9 +4,7 @@ import { logger } from '../utils/logger';
 export class RedisClientManager {
     private static instance: Redis | null = null;
 
-    // Private constructor to prevent instantiation
     private constructor() { }
-
     /* 
     2. The Logic (&&)
     The && (AND operator) ensures that both variables must be present. If you provide a URL but forget the Secret, it will return false because Redis won't be able to connect anyway.
@@ -20,7 +18,6 @@ export class RedisClientManager {
     */
     private static isEnabled(): boolean {
         const isEnabled = !!process.env.REDIS_URL && !!process.env.REDIS_SECRET;
-        logger.debug(`[Redis] isEnabled: ${isEnabled}`);
         return isEnabled;
     }
 
@@ -63,14 +60,14 @@ export class RedisClientManager {
         try {
             const redis = RedisClientManager.getInstance();
             if (!redis) return;
-            const jsonValue:any = JSON.stringify(value);
-            expirationInSeconds = 60 * 60; // default 1-hour minute
-            if (expirationInSeconds) {
-                await redis.set(key, jsonValue, { ex: expirationInSeconds });
+            const jsonValue: any = typeof value === 'string' ? value : JSON.stringify(value);
+            const ttl = expirationInSeconds ?? 60 * 60;
+            if (ttl) {
+                await redis.set(key, jsonValue, { ex: ttl });
             } else {
                 await redis.set(key, jsonValue);
             }
-            logger.debug(`[Redis] SET key: ${key}`);
+            logger.debug(`[Redis] SET key: ${key} (ttl: ${ttl}s)`);
         } catch (error) {
             logger.error(`Failed to set key ${key}`, error);
         }
@@ -83,12 +80,20 @@ export class RedisClientManager {
             const redis = RedisClientManager.getInstance();
             if (!redis) return null;
             const value = await redis.get(key);
-            if (value) {
+            if (value !== null && value !== undefined) {
                 logger.debug(`[Redis] HIT key: ${key}`);
+                if (typeof value === 'string') {
+                    try {
+                        return JSON.parse(value);
+                    } catch (_) {
+                        return value;
+                    }
+                }
+                return value;
             } else {
                 logger.debug(`[Redis] MISS key: ${key}`);
+                return null;
             }
-            return value;
         } catch (error) {
             logger.error(`Failed to get key ${key}`, error);
             return null;
