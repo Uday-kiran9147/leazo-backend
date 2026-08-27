@@ -2,6 +2,7 @@ import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import jwt from 'jsonwebtoken';
 import { ITokenService, JwtPayload } from './interfaces/token_service.interface';
+import { logger } from '../../utils/logger';
 
 /**
  * Service implementing ITokenService for JWT operations.
@@ -18,7 +19,10 @@ export class TokenService implements ITokenService {
    */
   async generateAccessToken(payload: JwtPayload): Promise<string> {
     const secret = this.config.get<string>('JWT_SECRET') || process.env.JWT_SECRET || 'secret';
-    return jwt.sign(payload, secret, { expiresIn: '1d' });
+    const expiresIn = this.config.get<string>('JWT_EXPIRES_IN') || process.env.JWT_EXPIRES_IN || '7d';
+    logger.info(`Generating access token for user: ${payload.sub} (expiresIn: ${expiresIn})`);
+    
+    return jwt.sign(payload, secret, { expiresIn: expiresIn as any });
   }
 
   /**
@@ -32,7 +36,8 @@ export class TokenService implements ITokenService {
       process.env.REFRESH_TOKEN_SECRET ||
       this.config.get<string>('JWT_SECRET') ||
       'refresh_secret';
-    return jwt.sign(payload, secret, { expiresIn: '7d' });
+    const expiresIn = this.config.get<string>('REFRESH_TOKEN_EXPIRES_IN') || process.env.REFRESH_TOKEN_EXPIRES_IN || '30d';
+    return jwt.sign(payload, secret, { expiresIn: expiresIn as any });
   }
 
   /**
@@ -61,6 +66,8 @@ export class TokenService implements ITokenService {
         process.env.REFRESH_TOKEN_SECRET ||
         this.config.get<string>('JWT_SECRET') ||
         'refresh_secret';
+
+      logger.info(`Verifying refresh token with secret`);
       return jwt.verify(token, secret) as JwtPayload;
     } catch (err) {
       throw new UnauthorizedException('Invalid or expired refresh token');

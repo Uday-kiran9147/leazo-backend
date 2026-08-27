@@ -141,12 +141,17 @@ export class AuthService {
   }
 
   /**
-   * Refreshes access token after verifying the provided refresh token and Redis store state.
+   * Refreshes access token after verifying provided refresh token and issuing a new token pair (Refresh Token Rotation).
    * @param dto Object containing refresh token string.
-   * @returns ApiResponse with new access token.
+   * @returns ApiResponse with new access token and new rotated refresh token.
    */
   async refreshToken(dto: RefreshTokenDto) {
-    const payload = await this.tokenService.verifyRefreshToken(dto.refreshToken);
+    const tokenStr = dto.refreshToken || (dto as any).token;
+    if (!tokenStr) {
+      throw new UnauthorizedException('Refresh token is required');
+    }
+
+    const payload = await this.tokenService.verifyRefreshToken(tokenStr);
     const userId = payload.sub || payload.id || payload._id;
 
     if (!userId) {
@@ -159,7 +164,7 @@ export class AuthService {
       throw new UnauthorizedException('Refresh token is invalid or has been revoked');
     }
 
-    const isValid = await this.credentialService.verify(storedHashedToken, dto.refreshToken);
+    const isValid = await this.credentialService.verify(storedHashedToken, tokenStr);
     if (!isValid) {
       throw new UnauthorizedException('Invalid refresh token credential');
     }
@@ -169,24 +174,48 @@ export class AuthService {
       throw new UnauthorizedException('User account no longer exists');
     }
 
-    const newAccessToken = await this.tokenService.generateAccessToken({
+    const jwtPayload: JwtPayload = {
       sub: user._id.toString(),
       id: user._id.toString(),
       _id: user._id.toString(),
       email: user.email,
       role: user.role || 'User',
-    });
+    };
 
-    return new ApiResponse(200, 'Token refreshed successfully', { accessToken: newAccessToken });
+    const [newAccessToken, newRefreshToken] = await Promise.all([
+      this.tokenService.generateAccessToken(jwtPayload),
+      this.tokenService.generateRefreshToken(jwtPayload),
+    ]);
+
+    // Store rotated refresh token with 7-day TTL
+    const hashedToken = await this.credentialService.hash(newRefreshToken);
+    await this.refreshTokenRepo.store(user._id.toString(), hashedToken, 7 * 24 * 60 * 60);
+
+    return new ApiResponse(200, 'Token refreshed successfully', {
+      token: newAccessToken,
+      accessToken: newAccessToken,
+      refreshToken: newRefreshToken,
+    });
   }
 
   /**
-   * Logs out user by revoking their stored refresh token in Redis.
-   * @param userId ObjectId string of user.
+   * Logs out user by revoking their stored refresh token in Redis / memory.
+   * @param dto Object containing refresh token string.
    * @returns ApiResponse confirming logout.
    */
-  async logout(userId: string) {
-    await this.refreshTokenRepo.revoke(userId);
+  async logout(dto: RefreshTokenDto) {
+    try {
+      const tokenStr = dto.refreshToken || (dto as any).token;
+      if (tokenStr) {
+        const payload = await this.tokenService.verifyRefreshToken(tokenStr);
+        const userId = payload.sub || payload.id || payload._id;
+        if (userId) {
+          await this.refreshTokenRepo.revoke(userId);
+        }
+      }
+    } catch (err: any) {
+      logger.warn(`Logout executed with expired or unparseable refresh token`);
+    }
     return new ApiResponse(200, 'Logged out successfully', {});
   }
 

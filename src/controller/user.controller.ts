@@ -102,7 +102,8 @@ export const getAllPortions = async (req: Request, res: Response) => {
 
     if (cachedPortions) {
       logger.debug("Serving all portions from cache");
-      const apiResponse = new ApiResponse(200, "success", JSON.parse(cachedPortions));
+      const data = typeof cachedPortions === 'string' ? JSON.parse(cachedPortions) : cachedPortions;
+      const apiResponse = new ApiResponse(200, "success", data);
       
       return res.status(apiResponse.status).json(apiResponse);
     }
@@ -117,7 +118,7 @@ export const getAllPortions = async (req: Request, res: Response) => {
     const responseData = { count: portions.length, portions };
 
     // Cache result with expiration time
-    await RedisClientManager.set(cacheKey, JSON.stringify(responseData),);
+    await RedisClientManager.set(cacheKey, JSON.stringify(responseData));
 
     const apiResponse = new ApiResponse(200, "success", responseData);
     return res.status(apiResponse.status).json(apiResponse);
@@ -135,7 +136,8 @@ export const getAllUsers = async (req: Request, res: Response) => {
 
     if (cachedUsers) {
       logger.debug("Serving all users from cache");
-      const apiResponse = new ApiResponse(200, "success", JSON.parse(cachedUsers));
+      const data = typeof cachedUsers === 'string' ? JSON.parse(cachedUsers) : cachedUsers;
+      const apiResponse = new ApiResponse(200, "success", data);
       return res.status(apiResponse.status).json(apiResponse);
     }
 
@@ -144,7 +146,7 @@ export const getAllUsers = async (req: Request, res: Response) => {
     const responseData = { count: users.length, users };
 
     // Cache result with expiration time
-    await RedisClientManager.set(cacheKey, JSON.stringify(responseData), /* 300 */); // cache for 5 minutes
+    await RedisClientManager.set(cacheKey, JSON.stringify(responseData));
 
     const apiResponse = new ApiResponse(200, "success", responseData);
     return res.status(apiResponse.status).json(apiResponse);
@@ -251,18 +253,6 @@ async function sendNewUserNotification(user: any) {
   }
 }
 
-
-
-
-/**
- * Handles the request to get a user.
- * 
- * @param req - The request object containing the user data.
- * @param res - The response object used to send back the appropriate response.
- * @returns A JSON response with the user data if found, or an error message if not found.
- * 
- * @throws Will return an error response if an exception occurs during the process.
- */
 export const getUser = async (req: Request, res: Response) => {
   try {
     const user = req.body.user;
@@ -381,7 +371,6 @@ export const revealPortionContact = async (req: Request, res: Response) => {
       }
     } catch (notifError) {
       logger.error("Failed to notify owner about contact reveal", notifError);
-      // Don't fail the request if notification fails
     }
 
     // Invalidate caches
