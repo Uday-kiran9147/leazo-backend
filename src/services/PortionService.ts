@@ -92,7 +92,16 @@ export class PortionService {
     ) {
         const cacheKey = `building-portions:${buildingId}:p${page}:l${limit}`;
         const cached = await RedisClientManager.get(cacheKey);
-        if (cached) return JSON.parse(cached);
+        if (cached) {
+            if (typeof cached === 'string') {
+                try {
+                    return JSON.parse(cached);
+                } catch (_) {
+                    return cached;
+                }
+            }
+            return cached;
+        }
 
         const portions = await this.portionRepository.findByBuildingId(
             buildingId,
@@ -100,7 +109,7 @@ export class PortionService {
             limit
         );
 
-        await RedisClientManager.set(cacheKey, JSON.stringify(portions));
+        await RedisClientManager.set(cacheKey, portions);
         return portions;
     }
 
